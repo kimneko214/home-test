@@ -1,74 +1,2417 @@
 <!doctype html>
+
 <html lang="zh-CN">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>公交实时位置</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>
-*{box-sizing:border-box}body{margin:0;background:#f4f4f1;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}.page{max-width:900px;margin:auto;padding:calc(16px + env(safe-area-inset-top)) 14px 35px}.top{display:flex;gap:10px;align-items:center;margin-bottom:12px}.back,.refresh{width:44px;height:44px;border:1px solid #e5e5df;background:#fff;border-radius:13px;display:grid;place-items:center;text-decoration:none;color:#111;font-size:20px}.title{flex:1}.title strong{display:block}.title small{display:block;color:#777;margin-top:3px}.summary{background:#fff;border:1px solid #e5e5df;border-radius:19px;padding:14px;margin-bottom:12px;display:flex;align-items:center;gap:12px}.route{width:48px;height:48px;background:#1d1d1f;color:#fff;border-radius:14px;display:grid;place-items:center;font-weight:700}.info{flex:1}.info strong{display:block}.info small{color:#777}.eta{font-size:22px;font-weight:700}#map{height:56vh;min-height:370px;border-radius:22px;overflow:hidden}.status{background:#fff;border:1px solid #e5e5df;border-radius:17px;margin-top:12px;padding:13px;font-size:12px;color:#777;line-height:1.6}.bus-pin,.stop-pin{display:grid;place-items:center;border-radius:50%;box-shadow:0 3px 10px #0003}.bus-pin{width:42px;height:42px;background:#fff;border:2px solid #222;font-size:23px}.stop-pin{width:35px;height:35px;background:#222;color:#fff;border:3px solid #fff}
-</style>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <title>公交实时位置</title>
+
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+
+    :root {
+
+      --bg:
+        #f4f4f1;
+
+      --card:
+        #ffffff;
+
+      --text:
+        #1d1d1f;
+
+      --muted:
+        #777777;
+
+      --line:
+        #e5e5df;
+
+    }
+
+
+    body {
+
+      margin: 0;
+
+      background:
+        var(--bg);
+
+      color:
+        var(--text);
+
+      font-family:
+
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "PingFang SC",
+        "Microsoft YaHei",
+        sans-serif;
+
+    }
+
+
+    .page {
+
+      max-width:
+        1100px;
+
+      margin:
+        auto;
+
+      padding:
+
+        calc(
+          16px +
+          env(safe-area-inset-top)
+        )
+
+        14px
+
+        calc(
+          35px +
+          env(safe-area-inset-bottom)
+        );
+
+    }
+
+
+
+    /* ======================================================
+       Header
+       ====================================================== */
+
+    .top {
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        10px;
+
+      margin-bottom:
+        12px;
+
+    }
+
+
+    .back,
+    .refresh {
+
+      width:
+        44px;
+
+      height:
+        44px;
+
+      flex:
+        0 0 44px;
+
+      border:
+        1px solid var(--line);
+
+      border-radius:
+        14px;
+
+      background:
+        white;
+
+      color:
+        #111;
+
+      display:
+        grid;
+
+      place-items:
+        center;
+
+      text-decoration:
+        none;
+
+      font-size:
+        20px;
+
+      cursor:
+        pointer;
+
+    }
+
+
+    .title {
+
+      flex:
+        1;
+
+      min-width:
+        0;
+
+    }
+
+
+    .title strong {
+
+      display:
+        block;
+
+      font-size:
+        19px;
+
+    }
+
+
+    .title small {
+
+      display:
+        block;
+
+      margin-top:
+        3px;
+
+      color:
+        var(--muted);
+
+      white-space:
+        nowrap;
+
+      overflow:
+        hidden;
+
+      text-overflow:
+        ellipsis;
+
+    }
+
+
+
+    /* ======================================================
+       Bus summary
+       ====================================================== */
+
+    .summary {
+
+      background:
+        white;
+
+      border:
+        1px solid var(--line);
+
+      border-radius:
+        21px;
+
+      padding:
+        17px;
+
+      margin-bottom:
+        14px;
+
+    }
+
+
+    .route-row {
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        14px;
+
+    }
+
+
+    .route {
+
+      width:
+        52px;
+
+      height:
+        52px;
+
+      flex:
+        0 0 52px;
+
+      display:
+        grid;
+
+      place-items:
+        center;
+
+      border-radius:
+        15px;
+
+      background:
+        #1d1d1f;
+
+      color:
+        white;
+
+      font-size:
+        19px;
+
+      font-weight:
+        750;
+
+    }
+
+
+    .info {
+
+      flex:
+        1;
+
+      min-width:
+        0;
+
+    }
+
+
+    .info strong {
+
+      display:
+        block;
+
+      font-size:
+        17px;
+
+      line-height:
+        1.35;
+
+    }
+
+
+    .info small {
+
+      display:
+        block;
+
+      margin-top:
+        5px;
+
+      color:
+        var(--muted);
+
+      font-size:
+        12px;
+
+      white-space:
+        nowrap;
+
+      overflow:
+        hidden;
+
+      text-overflow:
+        ellipsis;
+
+    }
+
+
+    .eta {
+
+      text-align:
+        right;
+
+      flex:
+        0 0 auto;
+
+    }
+
+
+    .eta strong {
+
+      display:
+        block;
+
+      font-size:
+        28px;
+
+      line-height:
+        1;
+
+    }
+
+
+    .eta small {
+
+      display:
+        block;
+
+      margin-top:
+        5px;
+
+      color:
+        #3c8250;
+
+      font-size:
+        10px;
+
+    }
+
+
+
+    /* ======================================================
+       Map
+       ====================================================== */
+
+    .map-wrap {
+
+      position:
+        relative;
+
+    }
+
+
+    #map {
+
+      width:
+        100%;
+
+      height:
+        60vh;
+
+      min-height:
+        430px;
+
+      border-radius:
+        23px;
+
+      border:
+        1px solid var(--line);
+
+      overflow:
+        hidden;
+
+      background:
+        #e9e9e5;
+
+    }
+
+
+
+    /* ======================================================
+       Legend
+       ====================================================== */
+
+    .legend {
+
+      position:
+        absolute;
+
+      left:
+        12px;
+
+      bottom:
+        12px;
+
+      z-index:
+        500;
+
+      padding:
+        10px 12px;
+
+      border-radius:
+        13px;
+
+      border:
+        1px solid rgba(
+          0,
+          0,
+          0,
+          .08
+        );
+
+      background:
+        rgba(
+          255,
+          255,
+          255,
+          .93
+        );
+
+      backdrop-filter:
+        blur(8px);
+
+      font-size:
+        11px;
+
+      line-height:
+        1.5;
+
+    }
+
+
+    .legend-row {
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        8px;
+
+    }
+
+
+    .legend-row +
+    .legend-row {
+
+      margin-top:
+        5px;
+
+    }
+
+
+    .legend-line {
+
+      width:
+        24px;
+
+      height:
+        4px;
+
+      border-radius:
+        999px;
+
+    }
+
+
+    .legend-line.full {
+
+      background:
+        #676767;
+
+    }
+
+
+    .legend-line.trip {
+
+      background:
+        #2875e8;
+
+    }
+
+
+
+    /* ======================================================
+       Markers
+       ====================================================== */
+
+    .vehicle-marker {
+
+      width:
+        44px;
+
+      height:
+        44px;
+
+      display:
+        grid;
+
+      place-items:
+        center;
+
+      border-radius:
+        50%;
+
+      background:
+        white;
+
+      border:
+        2px solid #1d1d1f;
+
+      box-shadow:
+        0 4px 13px rgba(
+          0,
+          0,
+          0,
+          .25
+        );
+
+      font-size:
+        24px;
+
+    }
+
+
+    .stop-marker {
+
+      width:
+        37px;
+
+      height:
+        37px;
+
+      display:
+        grid;
+
+      place-items:
+        center;
+
+      border-radius:
+        50%;
+
+      background:
+        #1d1d1f;
+
+      color:
+        white;
+
+      border:
+        3px solid white;
+
+      box-shadow:
+        0 4px 12px rgba(
+          0,
+          0,
+          0,
+          .22
+        );
+
+      font-size:
+        17px;
+
+    }
+
+
+
+    /* ======================================================
+       Bottom status
+       ====================================================== */
+
+    .status {
+
+      margin-top:
+        14px;
+
+      background:
+        white;
+
+      border:
+        1px solid var(--line);
+
+      border-radius:
+        19px;
+
+      padding:
+        15px;
+
+      color:
+        var(--muted);
+
+      font-size:
+        12px;
+
+      line-height:
+        1.7;
+
+    }
+
+
+    .status strong {
+
+      color:
+        var(--text);
+
+    }
+
+
+    .status-grid {
+
+      display:
+        grid;
+
+      grid-template-columns:
+
+        repeat(
+          2,
+          minmax(
+            0,
+            1fr
+          )
+        );
+
+      gap:
+        10px;
+
+      margin-top:
+        10px;
+
+    }
+
+
+    .status-item {
+
+      padding:
+        11px;
+
+      border-radius:
+        13px;
+
+      background:
+        #f5f5f2;
+
+    }
+
+
+    .status-item small {
+
+      display:
+        block;
+
+      color:
+        #999;
+
+      margin-bottom:
+        3px;
+
+    }
+
+
+    .status-item strong {
+
+      display:
+        block;
+
+      font-size:
+        13px;
+
+    }
+
+
+
+    @media (
+      max-width: 600px
+    ) {
+
+      #map {
+
+        height:
+          54vh;
+
+        min-height:
+          370px;
+
+      }
+
+
+      .summary {
+
+        padding:
+          14px;
+
+      }
+
+
+      .eta strong {
+
+        font-size:
+          23px;
+
+      }
+
+
+      .info strong {
+
+        font-size:
+          15px;
+
+      }
+
+
+      .status-grid {
+
+        grid-template-columns:
+          1fr;
+
+      }
+
+    }
+
+  </style>
+
 </head>
+
+
+
 <body>
+
+
 <main class="page">
-<div class="top"><a class="back" href="./">‹</a><div class="title"><strong>公交实时位置</strong><small id="pageTitle">正在读取…</small></div><button id="refresh" class="refresh">↻</button></div>
-<div class="summary"><div id="route" class="route">--</div><div class="info"><strong id="headsign">读取中…</strong><small id="stop">—</small></div><div id="eta" class="eta">--</div></div>
-<div id="map"></div>
-<div id="status" class="status">正在查找这辆公交……</div>
+
+
+  <!-- =====================================================
+       Header
+       ===================================================== -->
+
+  <div class="top">
+
+
+    <a
+      class="back"
+      href="./"
+      aria-label="返回主页"
+    >
+
+      ‹
+
+    </a>
+
+
+    <div class="title">
+
+      <strong>
+        公交实时位置
+      </strong>
+
+      <small id="pageTitle">
+
+        正在读取…
+
+      </small>
+
+    </div>
+
+
+    <button
+      id="refresh"
+      class="refresh"
+      type="button"
+      aria-label="刷新"
+    >
+
+      ↻
+
+    </button>
+
+
+  </div>
+
+
+
+  <!-- =====================================================
+       Summary
+       ===================================================== -->
+
+  <section class="summary">
+
+
+    <div class="route-row">
+
+
+      <div
+        id="routeBadge"
+        class="route"
+      >
+
+        --
+
+      </div>
+
+
+      <div class="info">
+
+
+        <strong id="headsign">
+
+          正在读取班次…
+
+        </strong>
+
+
+        <small id="stopName">
+
+          —
+
+        </small>
+
+
+      </div>
+
+
+      <div class="eta">
+
+
+        <strong id="eta">
+
+          --
+
+        </strong>
+
+
+        <small id="liveText">
+
+          ● 实时
+
+        </small>
+
+
+      </div>
+
+
+    </div>
+
+
+  </section>
+
+
+
+  <!-- =====================================================
+       Map
+       ===================================================== -->
+
+  <div class="map-wrap">
+
+
+    <div id="map"></div>
+
+
+    <div class="legend">
+
+
+      <div class="legend-row">
+
+        <span
+          class="legend-line full"
+        ></span>
+
+        <span>
+          整条线路
+        </span>
+
+      </div>
+
+
+      <div class="legend-row">
+
+        <span
+          class="legend-line trip"
+        ></span>
+
+        <span>
+          当前方向
+        </span>
+
+      </div>
+
+
+      <div class="legend-row">
+
+        <span>
+          🚌
+        </span>
+
+        <span>
+          当前车辆
+        </span>
+
+      </div>
+
+
+      <div class="legend-row">
+
+        <span>
+          🚏
+        </span>
+
+        <span>
+          你的上车站
+        </span>
+
+      </div>
+
+
+    </div>
+
+
+  </div>
+
+
+
+  <!-- =====================================================
+       Status
+       ===================================================== -->
+
+  <div
+    id="status"
+    class="status"
+  >
+
+    正在读取实时公交位置……
+
+  </div>
+
+
 </main>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+></script>
+
+
 <script src="config.js"></script>
+
+
+
 <script>
-const q=new URLSearchParams(location.search);
-const tripId=q.get("tripId")||"",route=q.get("route")||"",stopId=q.get("stopId")||"",initialMinutes=q.get("minutes")||"",initialHeadsign=q.get("headsign")||"";
-document.getElementById("route").textContent=route||"?";
-document.getElementById("headsign").textContent=initialHeadsign||`Route ${route}`;
-document.getElementById("eta").textContent=initialMinutes?`${initialMinutes} min`:"--";
-document.getElementById("stop").textContent=`Stop #${stopId}`;
 
-const map=L.map("map").setView([42.9849,-81.2453],13);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
-const busIcon=L.divIcon({className:"",html:'<div class="bus-pin">🚌</div>',iconSize:[42,42],iconAnchor:[21,21]});
-const stopIcon=L.divIcon({className:"",html:'<div class="stop-pin">🚏</div>',iconSize:[35,35],iconAnchor:[17,17]});
-let busMarker=null,stopMarker=null,first=true;
+  // ========================================================
+  // URL parameters
+  // ========================================================
 
-async function load(){
-  try{
-    const api=CONFIG.TRANSIT_API_URL.replace(/\/+$/,"");
-    const p=new URLSearchParams({tripId,route,stopId});
-    const r=await fetch(`${api}/vehicle?${p}`,{cache:"no-store"});
-    if(!r.ok)throw new Error(`Worker HTTP ${r.status}: ${await r.text()}`);
-    const d=await r.json();if(d.error)throw new Error(d.detail||d.error);
+  const params =
+    new URLSearchParams(
+      location.search
+    );
 
-    if(d.headsign){document.getElementById("headsign").textContent=d.headsign;document.getElementById("pageTitle").textContent=d.headsign}
-    if(d.minutes!==null&&d.minutes!==undefined)document.getElementById("eta").textContent=`${d.minutes} min`;
 
-    const bounds=[];
-    if(d.stop&&Number.isFinite(Number(d.stop.lat))&&Number.isFinite(Number(d.stop.lon))){
-      const p=[Number(d.stop.lat),Number(d.stop.lon)];bounds.push(p);
-      if(stopMarker)stopMarker.setLatLng(p);else stopMarker=L.marker(p,{icon:stopIcon}).addTo(map);
-      stopMarker.bindPopup(`${d.stop.name}<br>Stop #${d.stop.code}`);
-      document.getElementById("stop").textContent=`${d.stop.name} · #${d.stop.code}`;
+  const tripId =
+    params.get(
+      "tripId"
+    ) || "";
+
+
+  const route =
+    params.get(
+      "route"
+    ) || "";
+
+
+  const stopId =
+    params.get(
+      "stopId"
+    ) || "";
+
+
+  const initialMinutes =
+    params.get(
+      "minutes"
+    ) || "";
+
+
+  const initialHeadsign =
+    params.get(
+      "headsign"
+    ) || "";
+
+
+  const initialRealtime =
+    params.get(
+      "realtime"
+    ) ===
+    "1";
+
+
+
+  // ========================================================
+  // Initial UI
+  // ========================================================
+
+  document
+    .getElementById(
+      "routeBadge"
+    )
+    .textContent =
+      route || "?";
+
+
+  document
+    .getElementById(
+      "headsign"
+    )
+    .textContent =
+
+      initialHeadsign ||
+
+      `Route ${route}`;
+
+
+  document
+    .getElementById(
+      "pageTitle"
+    )
+    .textContent =
+
+      initialHeadsign ||
+
+      `Route ${route}`;
+
+
+  document
+    .getElementById(
+      "eta"
+    )
+    .textContent =
+
+      initialMinutes
+
+        ? `${initialMinutes} min`
+
+        : "--";
+
+
+  document
+    .getElementById(
+      "liveText"
+    )
+    .textContent =
+
+      initialRealtime
+
+        ? "● 实时"
+
+        : "○ 计划";
+
+
+  document
+    .getElementById(
+      "stopName"
+    )
+    .textContent =
+
+      stopId
+
+        ? `Stop #${stopId}`
+
+        : "—";
+
+
+
+  // ========================================================
+  // Leaflet map
+  // ========================================================
+
+  const map =
+
+    L.map(
+      "map",
+      {
+        zoomControl:
+          true
+      }
+    )
+
+    .setView(
+      [
+        42.9849,
+        -81.2453
+      ],
+      12
+    );
+
+
+
+  L.tileLayer(
+
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+
+    {
+
+      maxZoom:
+        19,
+
+      attribution:
+        "© OpenStreetMap"
+
     }
 
-    if(d.vehicle&&Number.isFinite(Number(d.vehicle.lat))&&Number.isFinite(Number(d.vehicle.lon))){
-      const p=[Number(d.vehicle.lat),Number(d.vehicle.lon)];bounds.push(p);
-      if(busMarker)busMarker.setLatLng(p);else busMarker=L.marker(p,{icon:busIcon}).addTo(map);
-      busMarker.bindPopup(`Route ${route}<br>${d.vehicle.label||d.vehicle.id||"LTC Bus"}`);
-      document.getElementById("status").innerHTML=`<strong>🟢 已找到这辆公交</strong><br>车辆：${d.vehicle.label||d.vehicle.id||"—"}<br>位置更新时间：${d.vehicle.updatedText||"—"}`;
-    }else{
-      if(busMarker){map.removeLayer(busMarker);busMarker=null}
-      document.getElementById("status").innerHTML="<strong>暂时没有这班车的车辆定位</strong><br>到站预测仍然可以正常使用。";
+  )
+  .addTo(
+    map
+  );
+
+
+
+  // ========================================================
+  // Map layers
+  // ========================================================
+
+  const fullRouteLayer =
+
+    L.layerGroup()
+      .addTo(map);
+
+
+  const tripRouteLayer =
+
+    L.layerGroup()
+      .addTo(map);
+
+
+
+  // ========================================================
+  // Icons
+  // ========================================================
+
+  const busIcon =
+
+    L.divIcon(
+      {
+
+        className:
+          "",
+
+        html:
+
+          '<div class="vehicle-marker">' +
+
+          '🚌' +
+
+          '</div>',
+
+        iconSize:
+          [44, 44],
+
+        iconAnchor:
+          [22, 22]
+
+      }
+    );
+
+
+  const stopIcon =
+
+    L.divIcon(
+      {
+
+        className:
+          "",
+
+        html:
+
+          '<div class="stop-marker">' +
+
+          '🚏' +
+
+          '</div>',
+
+        iconSize:
+          [37, 37],
+
+        iconAnchor:
+          [18, 18]
+
+      }
+    );
+
+
+
+  let vehicleMarker =
+    null;
+
+
+  let stopMarker =
+    null;
+
+
+  let firstFit =
+    true;
+
+
+  let routeLoaded =
+    false;
+
+
+
+  // ========================================================
+  // Helpers
+  // ========================================================
+
+  function escapeHtml(
+    value = ""
+  ) {
+
+    return String(value)
+      .replace(
+
+        /[&<>"']/g,
+
+        character => ({
+
+          "&":
+            "&amp;",
+
+          "<":
+            "&lt;",
+
+          ">":
+            "&gt;",
+
+          '"':
+            "&quot;",
+
+          "'":
+            "&#039;"
+
+        }[character])
+
+      );
+
+  }
+
+
+
+  function geometryToLines(
+    geometry
+  ) {
+
+
+    if (
+      !geometry
+    ) {
+
+      return [];
+
     }
 
-    if(first&&bounds.length){
-      bounds.length===1?map.setView(bounds[0],15):map.fitBounds(L.latLngBounds(bounds),{padding:[50,50],maxZoom:16});
-      first=false;
+
+    // LineString
+    if (
+      geometry.type ===
+        "LineString" &&
+
+      Array.isArray(
+        geometry.coordinates
+      )
+    ) {
+
+
+      return [
+
+        geometry
+          .coordinates
+          .map(
+
+            coordinate => [
+
+              Number(
+                coordinate[1]
+              ),
+
+              Number(
+                coordinate[0]
+              )
+
+            ]
+
+          )
+          .filter(
+
+            point =>
+
+              Number.isFinite(
+                point[0]
+              )
+
+              &&
+
+              Number.isFinite(
+                point[1]
+              )
+
+          )
+
+      ];
+
     }
-  }catch(e){document.getElementById("status").innerHTML=`<strong>读取失败</strong><br>${e.message||e}`}
-}
-document.getElementById("refresh").addEventListener("click",load);
-load();setInterval(load,30000);
+
+
+    // MultiLineString
+    if (
+      geometry.type ===
+        "MultiLineString" &&
+
+      Array.isArray(
+        geometry.coordinates
+      )
+    ) {
+
+
+      return geometry
+        .coordinates
+        .map(
+
+          line =>
+
+            line
+              .map(
+
+                coordinate => [
+
+                  Number(
+                    coordinate[1]
+                  ),
+
+                  Number(
+                    coordinate[0]
+                  )
+
+                ]
+
+              )
+              .filter(
+
+                point =>
+
+                  Number.isFinite(
+                    point[0]
+                  )
+
+                  &&
+
+                  Number.isFinite(
+                    point[1]
+                  )
+
+              )
+
+        )
+        .filter(
+
+          line =>
+            line.length >= 2
+
+        );
+
+    }
+
+
+    return [];
+
+  }
+
+
+
+  function drawGeometry(
+    layer,
+    geometry,
+    options
+  ) {
+
+
+    layer.clearLayers();
+
+
+    const lines =
+
+      geometryToLines(
+        geometry
+      );
+
+
+    const points =
+      [];
+
+
+    for (
+      const latlngs
+      of lines
+    ) {
+
+
+      if (
+        latlngs.length < 2
+      ) {
+
+        continue;
+
+      }
+
+
+      L.polyline(
+
+        latlngs,
+
+        options
+
+      )
+      .addTo(
+        layer
+      );
+
+
+      points.push(
+        ...latlngs
+      );
+
+    }
+
+
+    return points;
+
+  }
+
+
+
+  function cleanStopName(
+    name,
+    code
+  ) {
+
+
+    let result =
+
+      String(
+        name || ""
+      );
+
+
+    // Transitland 的名称有时已经带：
+    // " - #322"
+    //
+    // 避免页面显示：
+    // #322 · #322
+
+    result = result.replace(
+
+      new RegExp(
+        `\\s*-?\\s*#${String(code)}\\s*$`,
+        "i"
+      ),
+
+      ""
+
+    );
+
+
+    return result.trim();
+
+  }
+
+
+
+  // ========================================================
+  // 获取整条 Route
+  //
+  // 这里只需要加载一次。
+  // ========================================================
+
+  async function loadFullRoute() {
+
+
+    if (
+      routeLoaded ||
+      !route
+    ) {
+
+      return [];
+
+    }
+
+
+    const api =
+
+      CONFIG
+        .TRANSIT_API_URL
+        .replace(
+          /\/+$/,
+          ""
+        );
+
+
+    const response =
+
+      await fetch(
+
+        `${api}/route-vehicles?route=${encodeURIComponent(route)}`,
+
+        {
+
+          cache:
+            "no-store"
+
+        }
+
+      );
+
+
+    if (
+      !response.ok
+    ) {
+
+      throw new Error(
+
+        `Route API HTTP ${response.status}`
+
+      );
+
+    }
+
+
+    const data =
+
+      await response.json();
+
+
+    if (
+      data.error
+    ) {
+
+      throw new Error(
+
+        data.detail ||
+
+        data.error
+
+      );
+
+    }
+
+
+    routeLoaded =
+      true;
+
+
+    const geometry =
+
+      data.route?.geometry ||
+
+      null;
+
+
+    // 灰色粗线：
+    // Route 完整 geometry
+
+    return drawGeometry(
+
+      fullRouteLayer,
+
+      geometry,
+
+      {
+
+        color:
+          "#5c5c5c",
+
+        weight:
+          8,
+
+        opacity:
+          0.30,
+
+        lineCap:
+          "round",
+
+        lineJoin:
+          "round"
+
+      }
+
+    );
+
+  }
+
+
+
+  // ========================================================
+  // Load vehicle
+  // ========================================================
+
+  async function loadVehicle() {
+
+
+    const refreshButton =
+
+      document.getElementById(
+        "refresh"
+      );
+
+
+    refreshButton.disabled =
+      true;
+
+
+    try {
+
+
+      if (
+        !tripId
+      ) {
+
+        throw new Error(
+
+          "这个班次没有 tripId，无法查询车辆。"
+
+        );
+
+      }
+
+
+      const api =
+
+        CONFIG
+          .TRANSIT_API_URL
+          .replace(
+            /\/+$/,
+            ""
+          );
+
+
+      const query =
+
+        new URLSearchParams(
+          {
+
+            tripId,
+
+            route,
+
+            stopId
+
+          }
+        );
+
+
+      // ------------------------------------------------------
+      // 第一次：
+      // 同时请求整条线路 + 当前车辆
+      //
+      // 后面 30 秒刷新时只请求车辆
+      // ------------------------------------------------------
+
+      const promises = [
+
+        fetch(
+
+          `${api}/vehicle?${query.toString()}`,
+
+          {
+            cache:
+              "no-store"
+          }
+
+        )
+
+      ];
+
+
+      if (
+        !routeLoaded
+      ) {
+
+        promises.push(
+
+          loadFullRoute()
+
+        );
+
+      }
+
+
+      const results =
+
+        await Promise.all(
+          promises
+        );
+
+
+      const vehicleResponse =
+
+        results[0];
+
+
+      if (
+        !vehicleResponse.ok
+      ) {
+
+        throw new Error(
+
+          `Vehicle API HTTP ${vehicleResponse.status}: ${await vehicleResponse.text()}`
+
+        );
+
+      }
+
+
+      const data =
+
+        await vehicleResponse.json();
+
+
+      if (
+        data.error
+      ) {
+
+        throw new Error(
+
+          data.detail ||
+
+          data.error
+
+        );
+
+      }
+
+
+
+      // =====================================================
+      // HeadSign
+      // =====================================================
+
+      const headsign =
+
+        data.headsign ||
+
+        initialHeadsign ||
+
+        `Route ${route}`;
+
+
+      document
+        .getElementById(
+          "headsign"
+        )
+        .textContent =
+          headsign;
+
+
+      document
+        .getElementById(
+          "pageTitle"
+        )
+        .textContent =
+          headsign;
+
+
+
+      // =====================================================
+      // ETA
+      // =====================================================
+
+      if (
+
+        data.minutes !== null &&
+
+        data.minutes !== undefined
+
+      ) {
+
+
+        document
+          .getElementById(
+            "eta"
+          )
+          .textContent =
+
+            `${data.minutes} min`;
+
+      }
+
+
+
+      document
+        .getElementById(
+          "liveText"
+        )
+        .textContent =
+
+          data.realtime
+
+            ? "● 实时"
+
+            : "○ 计划";
+
+
+
+      // =====================================================
+      // 当前方向的完整 Trip Shape
+      // =====================================================
+
+      const tripPoints =
+
+        drawGeometry(
+
+          tripRouteLayer,
+
+          data.shape,
+
+          {
+
+            color:
+              "#2875e8",
+
+            weight:
+              5,
+
+            opacity:
+              0.88,
+
+            lineCap:
+              "round",
+
+            lineJoin:
+              "round"
+
+          }
+
+        );
+
+
+
+      // =====================================================
+      // Stop
+      // =====================================================
+
+      let stopPoint =
+        null;
+
+
+      if (
+
+        data.stop &&
+
+        Number.isFinite(
+          Number(
+            data.stop.lat
+          )
+        )
+
+        &&
+
+        Number.isFinite(
+          Number(
+            data.stop.lon
+          )
+        )
+
+      ) {
+
+
+        stopPoint = [
+
+          Number(
+            data.stop.lat
+          ),
+
+          Number(
+            data.stop.lon
+          )
+
+        ];
+
+
+        if (
+          stopMarker
+        ) {
+
+
+          stopMarker.setLatLng(
+            stopPoint
+          );
+
+        }
+
+
+        else {
+
+
+          stopMarker =
+
+            L.marker(
+
+              stopPoint,
+
+              {
+                icon:
+                  stopIcon
+              }
+
+            )
+            .addTo(
+              map
+            );
+
+        }
+
+
+        const name =
+
+          cleanStopName(
+
+            data.stop.name,
+
+            data.stop.code
+
+          );
+
+
+        stopMarker.bindPopup(
+
+          `${escapeHtml(name)}<br>` +
+
+          `Stop #${escapeHtml(data.stop.code)}`
+
+        );
+
+
+        document
+          .getElementById(
+            "stopName"
+          )
+          .textContent =
+
+            `${name} · #${data.stop.code}`;
+
+      }
+
+
+
+      // =====================================================
+      // Bus
+      // =====================================================
+
+      let vehiclePoint =
+        null;
+
+
+      if (
+
+        data.vehicle &&
+
+        Number.isFinite(
+          Number(
+            data.vehicle.lat
+          )
+        )
+
+        &&
+
+        Number.isFinite(
+          Number(
+            data.vehicle.lon
+          )
+        )
+
+      ) {
+
+
+        vehiclePoint = [
+
+          Number(
+            data.vehicle.lat
+          ),
+
+          Number(
+            data.vehicle.lon
+          )
+
+        ];
+
+
+        if (
+          vehicleMarker
+        ) {
+
+
+          vehicleMarker
+            .setLatLng(
+              vehiclePoint
+            );
+
+        }
+
+
+        else {
+
+
+          vehicleMarker =
+
+            L.marker(
+
+              vehiclePoint,
+
+              {
+                icon:
+                  busIcon
+              }
+
+            )
+            .addTo(
+              map
+            );
+
+        }
+
+
+        vehicleMarker.bindPopup(
+
+          `<strong>Route ${escapeHtml(route)}</strong><br>` +
+
+          `${escapeHtml(headsign)}<br>` +
+
+          `车辆：${escapeHtml(
+            data.vehicle.label ||
+            data.vehicle.id ||
+            "LTC Bus"
+          )}`
+
+        );
+
+
+
+        document
+          .getElementById(
+            "status"
+          )
+          .innerHTML = `
+
+
+            <strong>
+              🟢 已找到这辆公交
+            </strong>
+
+
+            <div class="status-grid">
+
+
+              <div class="status-item">
+
+                <small>
+                  车辆
+                </small>
+
+                <strong>
+                  ${escapeHtml(
+                    data.vehicle.label ||
+                    data.vehicle.id ||
+                    "LTC Bus"
+                  )}
+                </strong>
+
+              </div>
+
+
+              <div class="status-item">
+
+                <small>
+                  位置更新时间
+                </small>
+
+                <strong>
+                  ${escapeHtml(
+                    data.vehicle.updatedText ||
+                    "—"
+                  )}
+                </strong>
+
+              </div>
+
+
+              <div class="status-item">
+
+                <small>
+                  当前方向
+                </small>
+
+                <strong>
+                  ${escapeHtml(
+                    headsign
+                  )}
+                </strong>
+
+              </div>
+
+
+              <div class="status-item">
+
+                <small>
+                  预计到站
+                </small>
+
+                <strong>
+                  ${
+                    data.minutes !== null &&
+                    data.minutes !== undefined
+
+                      ? `${escapeHtml(data.minutes)} min`
+
+                      : "—"
+                  }
+                </strong>
+
+              </div>
+
+
+            </div>
+
+          `;
+
+      }
+
+
+      else {
+
+
+        if (
+          vehicleMarker
+        ) {
+
+
+          map.removeLayer(
+            vehicleMarker
+          );
+
+
+          vehicleMarker =
+            null;
+
+        }
+
+
+        document
+          .getElementById(
+            "status"
+          )
+          .innerHTML = `
+
+            <strong>
+              暂时没有这一班车的车辆定位
+            </strong>
+
+            <br>
+
+            到站预测和完整线路仍然可以正常显示。
+
+          `;
+
+      }
+
+
+
+      // =====================================================
+      // First map fit
+      //
+      // 优先：
+      // 当前方向 Trip Shape
+      //
+      // 如果没有 Trip Shape：
+      // Route geometry
+      // =====================================================
+
+      if (
+        firstFit
+      ) {
+
+
+        let fitPoints =
+
+          tripPoints;
+
+
+        // 如果当前 trip 没 shape，
+        // 使用整条线路 layer bounds
+
+        if (
+          !fitPoints.length
+        ) {
+
+
+          const bounds =
+
+            fullRouteLayer
+              .getBounds?.();
+
+
+          if (
+            bounds &&
+            bounds.isValid()
+          ) {
+
+
+            map.fitBounds(
+
+              bounds,
+
+              {
+
+                padding:
+                  [35, 35],
+
+                maxZoom:
+                  14
+
+              }
+
+            );
+
+
+            firstFit =
+              false;
+
+
+            return;
+
+          }
+
+        }
+
+
+        if (
+          fitPoints.length
+        ) {
+
+
+          map.fitBounds(
+
+            L.latLngBounds(
+              fitPoints
+            ),
+
+            {
+
+              padding:
+                [35, 35],
+
+              maxZoom:
+                14
+
+            }
+
+          );
+
+
+          firstFit =
+            false;
+
+        }
+
+
+        else if (
+          vehiclePoint ||
+          stopPoint
+        ) {
+
+
+          const fallback =
+
+            vehiclePoint ||
+
+            stopPoint;
+
+
+          map.setView(
+
+            fallback,
+
+            15
+
+          );
+
+
+          firstFit =
+            false;
+
+        }
+
+      }
+
+    }
+
+
+    catch (
+      error
+    ) {
+
+
+      console.error(
+        error
+      );
+
+
+      document
+        .getElementById(
+          "status"
+        )
+        .innerHTML =
+
+          `<strong>读取失败</strong><br>` +
+
+          `${escapeHtml(
+            error.message ||
+            String(error)
+          )}`;
+
+    }
+
+
+    finally {
+
+
+      refreshButton.disabled =
+        false;
+
+    }
+
+  }
+
+
+
+  // ========================================================
+  // Manual refresh
+  // ========================================================
+
+  document
+    .getElementById(
+      "refresh"
+    )
+    .addEventListener(
+
+      "click",
+
+      loadVehicle
+
+    );
+
+
+
+  // ========================================================
+  // First load
+  // ========================================================
+
+  loadVehicle();
+
+
+
+  // ========================================================
+  // Auto refresh
+  // ========================================================
+
+  setInterval(
+
+    loadVehicle,
+
+    30000
+
+  );
+
 </script>
+
+
 </body>
+
 </html>
