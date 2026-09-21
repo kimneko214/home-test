@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>公交实时位置</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f4f1;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}.page{max-width:900px;margin:auto;padding:calc(16px + env(safe-area-inset-top)) 14px 35px}.top{display:flex;gap:10px;align-items:center;margin-bottom:12px}.back,.refresh{width:44px;height:44px;border:1px solid #e5e5df;background:#fff;border-radius:13px;display:grid;place-items:center;text-decoration:none;color:#111;font-size:20px}.title{flex:1}.title strong{display:block}.title small{display:block;color:#777;margin-top:3px}.summary{background:#fff;border:1px solid #e5e5df;border-radius:19px;padding:14px;margin-bottom:12px;display:flex;align-items:center;gap:12px}.route{width:48px;height:48px;background:#1d1d1f;color:#fff;border-radius:14px;display:grid;place-items:center;font-weight:700}.info{flex:1}.info strong{display:block}.info small{color:#777}.eta{font-size:22px;font-weight:700}#map{height:56vh;min-height:370px;border-radius:22px;overflow:hidden}.status{background:#fff;border:1px solid #e5e5df;border-radius:17px;margin-top:12px;padding:13px;font-size:12px;color:#777;line-height:1.6}.bus-pin,.stop-pin{display:grid;place-items:center;border-radius:50%;box-shadow:0 3px 10px #0003}.bus-pin{width:42px;height:42px;background:#fff;border:2px solid #222;font-size:23px}.stop-pin{width:35px;height:35px;background:#222;color:#fff;border:3px solid #fff}
+</style>
+</head>
+<body>
+<main class="page">
+<div class="top"><a class="back" href="./">‹</a><div class="title"><strong>公交实时位置</strong><small id="pageTitle">正在读取…</small></div><button id="refresh" class="refresh">↻</button></div>
+<div class="summary"><div id="route" class="route">--</div><div class="info"><strong id="headsign">读取中…</strong><small id="stop">—</small></div><div id="eta" class="eta">--</div></div>
+<div id="map"></div>
+<div id="status" class="status">正在查找这辆公交……</div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script>
+const q=new URLSearchParams(location.search);
+const tripId=q.get("tripId")||"",route=q.get("route")||"",stopId=q.get("stopId")||"",initialMinutes=q.get("minutes")||"",initialHeadsign=q.get("headsign")||"";
+document.getElementById("route").textContent=route||"?";
+document.getElementById("headsign").textContent=initialHeadsign||`Route ${route}`;
+document.getElementById("eta").textContent=initialMinutes?`${initialMinutes} min`:"--";
+document.getElementById("stop").textContent=`Stop #${stopId}`;
+
+const map=L.map("map").setView([42.9849,-81.2453],13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const busIcon=L.divIcon({className:"",html:'<div class="bus-pin">🚌</div>',iconSize:[42,42],iconAnchor:[21,21]});
+const stopIcon=L.divIcon({className:"",html:'<div class="stop-pin">🚏</div>',iconSize:[35,35],iconAnchor:[17,17]});
+let busMarker=null,stopMarker=null,first=true;
+
+async function load(){
+  try{
+    const api=CONFIG.TRANSIT_API_URL.replace(/\/+$/,"");
+    const p=new URLSearchParams({tripId,route,stopId});
+    const r=await fetch(`${api}/vehicle?${p}`,{cache:"no-store"});
+    if(!r.ok)throw new Error(`Worker HTTP ${r.status}: ${await r.text()}`);
+    const d=await r.json();if(d.error)throw new Error(d.detail||d.error);
+
+    if(d.headsign){document.getElementById("headsign").textContent=d.headsign;document.getElementById("pageTitle").textContent=d.headsign}
+    if(d.minutes!==null&&d.minutes!==undefined)document.getElementById("eta").textContent=`${d.minutes} min`;
+
+    const bounds=[];
+    if(d.stop&&Number.isFinite(Number(d.stop.lat))&&Number.isFinite(Number(d.stop.lon))){
+      const p=[Number(d.stop.lat),Number(d.stop.lon)];bounds.push(p);
+      if(stopMarker)stopMarker.setLatLng(p);else stopMarker=L.marker(p,{icon:stopIcon}).addTo(map);
+      stopMarker.bindPopup(`${d.stop.name}<br>Stop #${d.stop.code}`);
+      document.getElementById("stop").textContent=`${d.stop.name} · #${d.stop.code}`;
+    }
+
+    if(d.vehicle&&Number.isFinite(Number(d.vehicle.lat))&&Number.isFinite(Number(d.vehicle.lon))){
+      const p=[Number(d.vehicle.lat),Number(d.vehicle.lon)];bounds.push(p);
+      if(busMarker)busMarker.setLatLng(p);else busMarker=L.marker(p,{icon:busIcon}).addTo(map);
+      busMarker.bindPopup(`Route ${route}<br>${d.vehicle.label||d.vehicle.id||"LTC Bus"}`);
+      document.getElementById("status").innerHTML=`<strong>🟢 已找到这辆公交</strong><br>车辆：${d.vehicle.label||d.vehicle.id||"—"}<br>位置更新时间：${d.vehicle.updatedText||"—"}`;
+    }else{
+      if(busMarker){map.removeLayer(busMarker);busMarker=null}
+      document.getElementById("status").innerHTML="<strong>暂时没有这班车的车辆定位</strong><br>到站预测仍然可以正常使用。";
+    }
+
+    if(first&&bounds.length){
+      bounds.length===1?map.setView(bounds[0],15):map.fitBounds(L.latLngBounds(bounds),{padding:[50,50],maxZoom:16});
+      first=false;
+    }
+  }catch(e){document.getElementById("status").innerHTML=`<strong>读取失败</strong><br>${e.message||e}`}
+}
+document.getElementById("refresh").addEventListener("click",load);
+load();setInterval(load,30000);
+</script>
+</body>
+</html>
