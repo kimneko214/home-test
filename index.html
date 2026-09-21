@@ -21,7 +21,7 @@
       <div class="card-top">
         <div>
           <div class="card-kicker">LONDON, ON · LTC</div>
-          <h2>🚌 家附近公交</h2>
+          <h2>🚌 常用公交</h2>
         </div>
         <button id="refreshTransit" class="round-btn" type="button" aria-label="刷新">↻</button>
       </div>
@@ -31,7 +31,31 @@
 
       <div class="transit-footer">
         <span id="updatedAt">—</span>
-        <a href="https://realtime.londontransit.ca/" target="_blank" rel="noopener">打开 LTC 实时页面 →</a>
+        <a href="https://realtime.londontransit.ca/" target="_blank" rel="noopener">LTC 实时页面 →</a>
+      </div>
+    </section>
+
+    <section class="featured-card route-search-card">
+      <div class="card-kicker">LIVE VEHICLE MAP</div>
+      <h2>🗺️ 查询整条线路</h2>
+      <p class="card-desc">输入线路号，例如 20、27、127，查看这条线路两个方向目前所有有实时定位的公交。</p>
+
+      <form id="routeSearchForm" class="route-search-form">
+        <input
+          id="routeSearchInput"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          placeholder="输入线路号，例如 127"
+          aria-label="输入线路号"
+        >
+        <button class="primary-btn" type="submit">查看地图</button>
+      </form>
+
+      <div class="route-shortcuts">
+        <button type="button" data-route="20">20</button>
+        <button type="button" data-route="27">27</button>
+        <button type="button" data-route="127">127</button>
       </div>
     </section>
 
@@ -51,9 +75,9 @@
         <div class="tile-icon">📚</div>
         <div class="tile-kicker">LIBRARY</div>
         <h3>我的教材库</h3>
-        <p>MOS1023、MOS1021 与 PDF 阅读。</p>
+        <p>教材、章节与 PDF 阅读。</p>
         <div class="actions">
-          <a class="primary-btn small" href="https://kimneko214.github.io/textbook/">打开教材库</a>
+          <a id="libraryBtn" class="primary-btn small" href="#">打开教材库</a>
         </div>
       </article>
 
@@ -81,7 +105,7 @@
         <h2>设置“家”</h2>
         <button class="close-btn" value="cancel" aria-label="关闭">×</button>
       </div>
-      <p>地址只保存在当前设备浏览器的 localStorage。</p>
+      <p>地址只保存在当前设备浏览器的 localStorage，不会写入公开 GitHub 仓库。</p>
 
       <label for="homeAddress">家的地址</label>
       <input id="homeAddress" type="text" autocomplete="street-address" placeholder="输入完整地址">
