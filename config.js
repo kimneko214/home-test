@@ -4,14 +4,6 @@ const CONFIG = {
 
   BUS_GROUPS: [
     {
-      id: "20-fanshawe",
-      route: "20",
-      title: "20 → Downtown / Fanshawe",
-      subtitle: "Oakcrossing · Stop #2407",
-      stopIds: ["2407"],
-      headsignIncludes: ["Fanshawe"]
-    },
-    {
   id: "27-western",
 
   route: "27",
