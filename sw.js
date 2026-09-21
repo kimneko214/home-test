@@ -1,4 +1,4 @@
-const CACHE = "home-test-v3";
+const CACHE = "home-test-v4";
 
 const ASSETS = [
   "./",
