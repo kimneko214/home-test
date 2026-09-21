@@ -12,13 +12,22 @@ const CONFIG = {
       headsignIncludes: ["Fanshawe"]
     },
     {
-      id: "27-western",
-      route: "27",
-      title: "27 → Western / Fanshawe",
-      subtitle: "Capulet Lane at Capulet Walk SB · Stop #322",
-      stopIds: ["322"],
-      headsignIncludes: ["Fanshawe"]
-    },
+  id: "27-western",
+
+  route: "27",
+
+  title:
+    "27 → Western",
+
+  subtitle:
+    "Capulet Lane at Capulet Walk SB · Stop #322",
+
+  stopIds: [
+    "322"
+  ],
+
+  headsignIncludes: []
+},
     {
       id: "127-western",
       route: "127",
