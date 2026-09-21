@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f5f2">
+  <title>我的主页</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="eyebrow">MY DASHBOARD</div>
+    <h1>我的主页</h1>
+    <div class="subline"><span id="todayText"></span> · <span id="tokyoTime"></span></div>
+  </header>
+
+  <main>
+    <section class="featured-card transit-card">
+      <div class="card-top">
+        <div>
+          <div class="card-kicker">LONDON, ON · LTC</div>
+          <h2>🚌 家附近公交</h2>
+        </div>
+        <button id="refreshTransit" class="round-btn" type="button" aria-label="刷新">↻</button>
+      </div>
+
+      <div id="transitStatus" class="transit-status">正在读取实时公交…</div>
+      <div id="arrivals" class="arrivals"></div>
+
+      <div class="transit-footer">
+        <span id="updatedAt">—</span>
+        <a href="https://realtime.londontransit.ca/" target="_blank" rel="noopener">打开 LTC 实时页面 →</a>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="tile">
+        <div class="tile-icon">🏠</div>
+        <div class="tile-kicker">NAVIGATION</div>
+        <h3>回家</h3>
+        <p id="homeStatus">第一次使用请设置家的地址。</p>
+        <div class="actions">
+          <button id="goHomeBtn" class="primary-btn small" type="button">开始导航</button>
+          <button id="editHomeBtn" class="secondary-btn small" type="button">设置</button>
+        </div>
+      </article>
+
+      <article class="tile">
+        <div class="tile-icon">📚</div>
+        <div class="tile-kicker">LIBRARY</div>
+        <h3>我的教材库</h3>
+        <p>MOS1023、MOS1021 与 PDF 阅读。</p>
+        <div class="actions">
+          <a class="primary-btn small" href="https://kimneko214.github.io/textbook/">打开教材库</a>
+        </div>
+      </article>
+
+      <article class="tile">
+        <div class="tile-icon">🇯🇵</div>
+        <div class="tile-kicker">TOKYO</div>
+        <h3 id="tokyoClock">--:--</h3>
+        <p id="tokyoDate">Japan</p>
+      </article>
+
+      <article class="tile">
+        <div class="tile-icon">🇨🇦</div>
+        <div class="tile-kicker">LONDON, ON</div>
+        <h3 id="londonClock">--:--</h3>
+        <p id="londonDate">Canada</p>
+      </article>
+    </section>
+  </main>
+
+  <footer>Personal Dashboard</footer>
+
+  <dialog id="homeDialog">
+    <form method="dialog" id="homeForm">
+      <div class="dialog-head">
+        <h2>设置“家”</h2>
+        <button class="close-btn" value="cancel" aria-label="关闭">×</button>
+      </div>
+      <p>地址只保存在当前设备浏览器的 localStorage。</p>
+
+      <label for="homeAddress">家的地址</label>
+      <input id="homeAddress" type="text" autocomplete="street-address" placeholder="输入完整地址">
+
+      <label for="mapProvider">导航方式</label>
+      <select id="mapProvider">
+        <option value="google">Google Maps</option>
+        <option value="apple">Apple Maps</option>
+      </select>
+
+      <div class="dialog-actions">
+        <button id="clearHomeBtn" class="danger-btn" type="button">清除</button>
+        <button class="primary-btn" value="save">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
