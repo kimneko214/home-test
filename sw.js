@@ -1,4 +1,4 @@
-const CACHE = "home-test-v4";
+const CACHE = "home-test-v5";
 
 const ASSETS = [
   "./",
@@ -69,7 +69,6 @@ self.addEventListener(
         event.request.url
       );
 
-    // 实时 API / OSM / Leaflet CDN 不进 PWA 缓存
     if (
       url.hostname.endsWith(
         "workers.dev"
