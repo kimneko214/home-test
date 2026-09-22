@@ -15,23 +15,108 @@ main{max-width:980px;margin:auto;padding:0 14px 70px}.featured-card,.tile{backgr
 footer{text-align:center;color:#aaa;font-size:11px;padding:0 20px calc(24px + env(safe-area-inset-bottom))}
 dialog{width:min(92vw,440px);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.2)}dialog::backdrop{background:rgba(0,0,0,.35)}.dialog-head{display:flex;justify-content:space-between;align-items:center}.dialog-head h2{margin:0}.close-btn{border:0;border-radius:50%;width:35px;height:35px;background:#efefec;font-size:21px}.dialog-head+p{font-size:13px;color:var(--muted);line-height:1.5}dialog label{display:block;margin:15px 0 7px;font-size:12px}dialog input,dialog select{width:100%;padding:13px;border:1px solid var(--line);border-radius:13px;background:#fafafa;font-size:16px}.dialog-actions{display:flex;justify-content:space-between;margin-top:20px}
 
-/* Bus cards */
+/* =========================================================
+   Bus direction cards
+   ========================================================= */
 .arrivals{display:flex;flex-direction:column;gap:11px}
 .bus-direction{padding:15px;border:1px solid var(--line);border-radius:19px;background:#fafaf8}
 .bus-direction-head{display:flex;align-items:flex-start;gap:13px}
 .bus-route{width:48px;height:48px;flex:0 0 48px;display:grid;place-items:center;border-radius:14px;background:#1d1d1f;color:#fff;font-size:18px;font-weight:750}
-.bus-direction-info{min-width:0;flex:1}.bus-direction-info>strong{display:block;font-size:15px;line-height:1.35}.bus-direction-info>small{display:block;margin-top:4px;color:#858585;font-size:11px}
+.bus-direction-info{min-width:0;flex:1}
+.bus-direction-info>strong{display:block;font-size:15px;line-height:1.35}
+.bus-direction-info>small{display:block;margin-top:4px;color:#858585;font-size:11px}
 .bus-headsign{display:block;margin-top:5px;color:#aaa;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bus-times{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.bus-time-chip{min-width:78px;padding:9px 11px;border-radius:13px;background:#efefec;text-decoration:none;color:inherit}
-.bus-time-chip strong{display:block;font-size:16px;line-height:1.2}.bus-time-chip small{display:block;margin-top:4px;font-size:9px;color:#888}.bus-time-chip.live small{color:#38804d}
-.no-bus{width:100%;padding:10px 2px;color:#aaa;font-size:12px}.bus-error{padding:15px;border-radius:15px;background:#f5eeee;color:#925151;font-size:12px}
 
-/* Route search */
+/* 每一班车 */
+.bus-time-chip{
+  min-width:118px;
+  padding:10px 11px;
+  border-radius:14px;
+  background:#efefec;
+  text-decoration:none;
+  color:inherit;
+  display:block;
+}
+.bus-time-chip>strong{
+  display:block;
+  font-size:18px;
+  line-height:1.15;
+  margin-bottom:7px;
+}
+.bus-timing-detail{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.bus-timing-row{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:center;
+  font-size:9px;
+  line-height:1.25;
+}
+.bus-timing-row b{
+  font-size:10px;
+  font-weight:650;
+}
+.live-row{
+  color:#347a49;
+}
+.scheduled-row{
+  color:#858585;
+}
+.bus-delay{
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  margin-top:3px;
+  padding:3px 6px;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:650;
+}
+.bus-delay.ontime{
+  background:#eaf2eb;
+  color:#44724e;
+}
+.bus-delay.late{
+  background:#f4eee3;
+  color:#896522;
+}
+.bus-delay.late-strong{
+  background:#f5e7e5;
+  color:#a34b42;
+}
+.bus-delay.early{
+  background:#e8eef7;
+  color:#49688d;
+}
+.bus-estimated-note{
+  margin-top:2px;
+  color:#aaa;
+  font-size:8px;
+  line-height:1.25;
+}
+
+.no-bus{width:100%;padding:10px 2px;color:#aaa;font-size:12px}
+.bus-error{padding:15px;border-radius:15px;background:#f5eeee;color:#925151;font-size:12px}
+
+/* =========================================================
+   Route search
+   ========================================================= */
 .route-search-form{display:flex;gap:9px;margin-top:16px}
 .route-search-form input{flex:1;min-width:0;border:1px solid var(--line);border-radius:13px;padding:12px 13px;background:#fafafa;font-size:16px}
 .route-shortcuts{display:flex;gap:8px;margin-top:10px}
 .route-shortcuts button{border:0;border-radius:999px;padding:8px 13px;background:#efefec;color:var(--text);cursor:pointer}
 
-@media(min-width:760px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:440px){.grid{grid-template-columns:1fr}.bus-times{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}.bus-time-chip{flex:0 0 auto}.route-search-form{flex-direction:column}}
+@media(min-width:760px){
+  .grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:440px){
+  .grid{grid-template-columns:1fr}
+  .bus-times{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}
+  .bus-time-chip{flex:0 0 auto}
+  .route-search-form{flex-direction:column}
+}
