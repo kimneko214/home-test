@@ -13,7 +13,7 @@
   <header class="hero">
     <div class="eyebrow">MY DASHBOARD</div>
     <h1>我的主页</h1>
-    <div class="subline"><span id="todayText"></span> · <span id="tokyoTime"></span></div>
+    <div class="subline"><span id="todayText"></span> · <span id="localTime"></span></div>
   </header>
 
   <main>
@@ -81,18 +81,39 @@
         </div>
       </article>
 
-      <article class="tile">
-        <div class="tile-icon">🇯🇵</div>
-        <div class="tile-kicker">TOKYO</div>
-        <h3 id="tokyoClock">--:--</h3>
-        <p id="tokyoDate">Japan</p>
+      <article class="tile notice-tile package-tile">
+        <div class="tile-icon">📦</div>
+        <div class="tile-kicker">IMPORTANT · JAPAN POST</div>
+        <h3>日本邮政包裹</h3>
+
+        <div id="packageList" class="package-list"></div>
+
+        <a
+          class="package-main-link"
+          href="https://trackings.post.japanpost.jp/services/srv/search?locale=ja"
+          target="_blank"
+          rel="noopener"
+        >
+          打开日本邮政追踪 →
+        </a>
       </article>
 
-      <article class="tile">
-        <div class="tile-icon">🇨🇦</div>
-        <div class="tile-kicker">LONDON, ON</div>
-        <h3 id="londonClock">--:--</h3>
-        <p id="londonDate">Canada</p>
+      <article id="importantNoticeCard" class="tile notice-tile">
+        <div id="noticeIcon" class="tile-icon">🔔</div>
+        <div class="tile-kicker">IMPORTANT</div>
+        <h3 id="noticeTitle">重要提醒</h3>
+        <p id="noticeText" class="notice-main-text"></p>
+        <p id="noticeDetail" class="notice-detail"></p>
+        <div class="actions">
+          <a
+            id="noticeButton"
+            class="secondary-btn small"
+            href="#"
+            target="_blank"
+            rel="noopener"
+            hidden
+          ></a>
+        </div>
       </article>
     </section>
   </main>
