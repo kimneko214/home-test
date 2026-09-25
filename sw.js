@@ -1,4 +1,4 @@
-const CACHE = "home-test-v5";
+const CACHE = "home-test-v6";
 
 const ASSETS = [
   "./",
@@ -77,7 +77,9 @@ self.addEventListener(
         "tile.openstreetmap.org"
       ) ||
       url.hostname ===
-        "unpkg.com"
+        "unpkg.com" ||
+      url.hostname ===
+        "trackings.post.japanpost.jp"
     ) {
       return;
     }
