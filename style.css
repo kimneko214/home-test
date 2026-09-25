@@ -120,3 +120,128 @@ dialog{width:min(92vw,440px);border:1px solid var(--line);border-radius:24px;pad
   .bus-time-chip{flex:0 0 auto}
   .route-search-form{flex-direction:column}
 }
+
+
+/* =========================================================
+   Important notices / Japan Post
+   ========================================================= */
+
+.notice-tile {
+  min-height: 230px;
+}
+
+.package-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 8px;
+  flex: 1;
+}
+
+.package-item {
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fafaf8;
+}
+
+.package-item-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.package-item-top strong {
+  display: block;
+  font-size: 12px;
+}
+
+.package-item-top small {
+  display: block;
+  margin-top: 2px;
+  color: #999;
+  font-size: 9px;
+}
+
+.package-badge {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #efefec;
+  color: #777;
+  font-size: 8px;
+}
+
+.package-item code {
+  display: block;
+  margin-top: 8px;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .02em;
+  word-break: break-all;
+}
+
+.package-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.package-actions a,
+.package-actions button {
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 9px;
+  background: #efefec;
+  color: #333;
+  text-decoration: none;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.package-actions a {
+  background: #1d1d1f;
+  color: #fff;
+}
+
+.package-main-link {
+  margin-top: 12px;
+  color: #555;
+  text-decoration: none;
+  font-size: 10px;
+}
+
+.package-empty {
+  font-size: 11px;
+  color: #aaa;
+}
+
+.notice-main-text {
+  font-size: 13px !important;
+  color: #333 !important;
+  flex: 0 !important;
+  margin-bottom: 6px;
+}
+
+.notice-detail {
+  font-size: 10px !important;
+  color: #999 !important;
+  margin-top: 0;
+}
+
+.notice-tile .actions {
+  margin-top: auto;
+}
+
+@media (max-width: 440px) {
+  .notice-tile {
+    min-height: auto;
+  }
+}
