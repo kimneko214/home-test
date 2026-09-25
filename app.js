@@ -18,11 +18,12 @@ if (
 
 
 // ============================================================
-// 时间
+// 顶部本机日期 / 时间
 // ============================================================
 
-function updateClocks() {
-  const now = new Date();
+function updateClock() {
+  const now =
+    new Date();
 
   const localTime =
     new Intl.DateTimeFormat(
@@ -44,75 +45,300 @@ function updateClocks() {
       }
     ).format(now);
 
-  document
-    .getElementById("todayText")
-    .textContent =
+  const todayText =
+    document.getElementById(
+      "todayText"
+    );
+
+  const localTimeElement =
+    document.getElementById(
+      "localTime"
+    );
+
+  if (todayText) {
+    todayText.textContent =
       localDate;
+  }
 
-  document
-    .getElementById("tokyoTime")
-    .textContent =
-      `本机 ${localTime}`;
-
-  document
-    .getElementById("tokyoClock")
-    .textContent =
-      new Intl.DateTimeFormat(
-        "zh-CN",
-        {
-          timeZone: "Asia/Tokyo",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false
-        }
-      ).format(now);
-
-  document
-    .getElementById("tokyoDate")
-    .textContent =
-      new Intl.DateTimeFormat(
-        "zh-CN",
-        {
-          timeZone: "Asia/Tokyo",
-          month: "long",
-          day: "numeric",
-          weekday: "short"
-        }
-      ).format(now);
-
-  document
-    .getElementById("londonClock")
-    .textContent =
-      new Intl.DateTimeFormat(
-        "zh-CN",
-        {
-          timeZone: "America/Toronto",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false
-        }
-      ).format(now);
-
-  document
-    .getElementById("londonDate")
-    .textContent =
-      new Intl.DateTimeFormat(
-        "zh-CN",
-        {
-          timeZone: "America/Toronto",
-          month: "long",
-          day: "numeric",
-          weekday: "short"
-        }
-      ).format(now);
+  if (localTimeElement) {
+    localTimeElement.textContent =
+      localTime;
+  }
 }
 
-updateClocks();
+updateClock();
 
 setInterval(
-  updateClocks,
+  updateClock,
   30000
 );
+
+
+// ============================================================
+// 日本邮政包裹
+// ============================================================
+
+function japanPostTrackingUrl(
+  trackingNumber
+) {
+  return (
+    "https://trackings.post.japanpost.jp/services/srv/search/direct" +
+    "?locale=ja" +
+    `&reqCodeNo1=${encodeURIComponent(trackingNumber)}`
+  );
+}
+
+
+async function copyTrackingNumber(
+  trackingNumber,
+  button
+) {
+  try {
+    await navigator
+      .clipboard
+      .writeText(
+        trackingNumber
+      );
+
+    const oldText =
+      button.textContent;
+
+    button.textContent =
+      "已复制";
+
+    setTimeout(
+      () => {
+        button.textContent =
+          oldText;
+      },
+      1200
+    );
+  }
+
+  catch (error) {
+    window.prompt(
+      "复制这个追踪号码：",
+      trackingNumber
+    );
+  }
+}
+
+
+function renderPackages() {
+  const container =
+    document.getElementById(
+      "packageList"
+    );
+
+  if (!container) {
+    return;
+  }
+
+  const packages =
+    Array.isArray(
+      cfg.JAPAN_POST_PACKAGES
+    )
+      ? cfg.JAPAN_POST_PACKAGES
+      : [];
+
+  if (
+    packages.length === 0
+  ) {
+    container.innerHTML = `
+
+      <div class="package-empty">
+        暂无包裹
+      </div>
+
+    `;
+
+    return;
+  }
+
+  container.innerHTML =
+    packages
+      .map(
+        (item, index) => {
+
+          const trackingNumber =
+            String(
+              item.trackingNumber ||
+              ""
+            )
+            .trim();
+
+          const label =
+            item.label ||
+            `包裹 ${index + 1}`;
+
+          const note =
+            item.note ||
+            "";
+
+          const url =
+            japanPostTrackingUrl(
+              trackingNumber
+            );
+
+          return `
+
+            <div class="package-item">
+
+              <div class="package-item-top">
+
+                <div>
+
+                  <strong>
+                    ${escapeHtml(label)}
+                  </strong>
+
+                  ${
+                    note
+                      ? `
+                        <small>
+                          ${escapeHtml(note)}
+                        </small>
+                      `
+                      : ""
+                  }
+
+                </div>
+
+                <span class="package-badge">
+                  Japan Post
+                </span>
+
+              </div>
+
+              <code>
+                ${escapeHtml(trackingNumber)}
+              </code>
+
+              <div class="package-actions">
+
+                <a
+                  href="${escapeHtml(url)}"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  查看追踪
+                </a>
+
+                <button
+                  type="button"
+                  class="copy-tracking"
+                  data-tracking="${escapeHtml(trackingNumber)}"
+                >
+                  复制单号
+                </button>
+
+              </div>
+
+            </div>
+
+          `;
+        }
+      )
+      .join("");
+
+  container
+    .querySelectorAll(
+      ".copy-tracking"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            copyTrackingNumber(
+              button.dataset.tracking,
+              button
+            );
+
+          }
+        );
+
+      }
+    );
+}
+
+
+function renderImportantNotice() {
+  const notice =
+    cfg.IMPORTANT_NOTICE ||
+    {};
+
+  const icon =
+    document.getElementById(
+      "noticeIcon"
+    );
+
+  const title =
+    document.getElementById(
+      "noticeTitle"
+    );
+
+  const text =
+    document.getElementById(
+      "noticeText"
+    );
+
+  const detail =
+    document.getElementById(
+      "noticeDetail"
+    );
+
+  const button =
+    document.getElementById(
+      "noticeButton"
+    );
+
+  if (icon) {
+    icon.textContent =
+      notice.icon ||
+      "🔔";
+  }
+
+  if (title) {
+    title.textContent =
+      notice.title ||
+      "重要提醒";
+  }
+
+  if (text) {
+    text.textContent =
+      notice.text ||
+      "";
+  }
+
+  if (detail) {
+    detail.textContent =
+      notice.detail ||
+      "";
+  }
+
+  if (
+    button &&
+    notice.buttonText &&
+    notice.buttonUrl
+  ) {
+    button.hidden =
+      false;
+
+    button.textContent =
+      notice.buttonText;
+
+    button.href =
+      notice.buttonUrl;
+  }
+
+  else if (button) {
+    button.hidden =
+      true;
+  }
+}
 
 
 // ============================================================
@@ -325,6 +551,10 @@ document
     }
   );
 
+
+
+renderPackages();
+renderImportantNotice();
 
 // ============================================================
 // 公交
