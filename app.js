@@ -75,7 +75,7 @@ setInterval(
 
 
 // ============================================================
-// 日本邮政包裹
+// 日本邮政包裹：直接在卡片显示实时状态
 // ============================================================
 
 function japanPostTrackingUrl(
@@ -84,6 +84,7 @@ function japanPostTrackingUrl(
   return (
     "https://trackings.post.japanpost.jp/services/srv/search/direct" +
     "?locale=ja" +
+    "&searchKind=S002" +
     `&reqCodeNo1=${encodeURIComponent(trackingNumber)}`
   );
 }
@@ -124,7 +125,91 @@ async function copyTrackingNumber(
 }
 
 
-function renderPackages() {
+function packageStatusMeta(
+  category
+) {
+  const map = {
+
+    delivered: {
+      label:
+        "已送达",
+      className:
+        "delivered",
+      icon:
+        "✓"
+    },
+
+    out_for_delivery: {
+      label:
+        "正在派送",
+      className:
+        "out-for-delivery",
+      icon:
+        "●"
+    },
+
+    customs: {
+      label:
+        "海关处理中",
+      className:
+        "customs",
+      icon:
+        "●"
+    },
+
+    held: {
+      label:
+        "保管中",
+      className:
+        "held",
+      icon:
+        "●"
+    },
+
+    accepted: {
+      label:
+        "日本邮政已收件",
+      className:
+        "accepted",
+      icon:
+        "●"
+    },
+
+    returned: {
+      label:
+        "退回中",
+      className:
+        "returned",
+      icon:
+        "!"
+    },
+
+    in_transit: {
+      label:
+        "运输中",
+      className:
+        "in-transit",
+      icon:
+        "●"
+    }
+
+  };
+
+  return (
+    map[category] ||
+    {
+      label:
+        "运输状态",
+      className:
+        "unknown",
+      icon:
+        "●"
+    }
+  );
+}
+
+
+function renderPackageSkeletons() {
   const container =
     document.getElementById(
       "packageList"
@@ -165,24 +250,19 @@ function renderPackages() {
               item.trackingNumber ||
               ""
             )
-            .trim();
+            .trim()
+            .toUpperCase();
 
           const label =
             item.label ||
             `包裹 ${index + 1}`;
 
-          const note =
-            item.note ||
-            "";
-
-          const url =
-            japanPostTrackingUrl(
-              trackingNumber
-            );
-
           return `
 
-            <div class="package-item">
+            <div
+              class="package-item"
+              data-package-number="${escapeHtml(trackingNumber)}"
+            >
 
               <div class="package-item-top">
 
@@ -192,15 +272,12 @@ function renderPackages() {
                     ${escapeHtml(label)}
                   </strong>
 
-                  ${
-                    note
-                      ? `
-                        <small>
-                          ${escapeHtml(note)}
-                        </small>
-                      `
-                      : ""
-                  }
+                  <small>
+                    ${escapeHtml(
+                      item.note ||
+                      "日本 → 加拿大"
+                    )}
+                  </small>
 
                 </div>
 
@@ -210,38 +287,365 @@ function renderPackages() {
 
               </div>
 
+
+              <div class="package-live-loading">
+
+                <span class="package-loading-dot"></span>
+
+                正在读取日本邮政…
+
+              </div>
+
+
               <code>
                 ${escapeHtml(trackingNumber)}
               </code>
 
-              <div class="package-actions">
+            </div>
 
-                <a
-                  href="${escapeHtml(url)}"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  查看追踪
-                </a>
+          `;
 
-                <button
-                  type="button"
-                  class="copy-tracking"
-                  data-tracking="${escapeHtml(trackingNumber)}"
-                >
-                  复制单号
-                </button>
+        }
+      )
+      .join("");
+}
+
+
+function renderPackageResult(
+  configItem,
+  result,
+  index
+) {
+  const trackingNumber =
+    String(
+      configItem.trackingNumber ||
+      ""
+    )
+    .trim()
+    .toUpperCase();
+
+  const label =
+    configItem.label ||
+    `包裹 ${index + 1}`;
+
+  const note =
+    configItem.note ||
+    "日本 → 加拿大";
+
+  const officialUrl =
+    result?.officialUrl ||
+    japanPostTrackingUrl(
+      trackingNumber
+    );
+
+  if (
+    !result ||
+    !result.ok
+  ) {
+    return `
+
+      <div
+        class="package-item"
+        data-package-number="${escapeHtml(trackingNumber)}"
+      >
+
+        <div class="package-item-top">
+
+          <div>
+
+            <strong>
+              ${escapeHtml(label)}
+            </strong>
+
+            <small>
+              ${escapeHtml(note)}
+            </small>
+
+          </div>
+
+          <span class="package-badge">
+            Japan Post
+          </span>
+
+        </div>
+
+
+        <div class="package-status-line error">
+
+          <span class="package-status-dot">
+            !
+          </span>
+
+          <div>
+
+            <strong>
+              暂时无法自动读取
+            </strong>
+
+            <small>
+              ${escapeHtml(
+                result?.error ||
+                "稍后会自动重试"
+              )}
+            </small>
+
+          </div>
+
+        </div>
+
+
+        <code>
+          ${escapeHtml(trackingNumber)}
+        </code>
+
+
+        <div class="package-actions">
+
+          <a
+            href="${escapeHtml(officialUrl)}"
+            target="_blank"
+            rel="noopener"
+          >
+            官方详情
+          </a>
+
+          <button
+            type="button"
+            class="copy-tracking"
+            data-tracking="${escapeHtml(trackingNumber)}"
+          >
+            复制单号
+          </button>
+
+        </div>
+
+      </div>
+
+    `;
+  }
+
+
+  const latest =
+    result.latest ||
+    {};
+
+  const meta =
+    packageStatusMeta(
+      latest.category
+    );
+
+  const location = [
+    latest.office,
+    latest.region
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const history =
+    Array.isArray(
+      result.history
+    )
+      ? result.history
+      : [];
+
+  const historyHtml =
+    history
+      .slice(
+        0,
+        3
+      )
+      .map(
+        (event, eventIndex) => {
+
+          const eventLocation = [
+            event.office,
+            event.region
+          ]
+            .filter(Boolean)
+            .join(" · ");
+
+          return `
+
+            <div
+              class="package-history-row ${
+                eventIndex === 0
+                  ? "latest"
+                  : ""
+              }"
+            >
+
+              <span class="package-history-marker"></span>
+
+              <div class="package-history-body">
+
+                <strong>
+                  ${escapeHtml(
+                    event.statusZh ||
+                    event.status ||
+                    "更新"
+                  )}
+                </strong>
+
+                <small>
+                  ${escapeHtml(
+                    event.date ||
+                    ""
+                  )}
+                  ${
+                    eventLocation
+                      ? ` · ${escapeHtml(eventLocation)}`
+                      : ""
+                  }
+                </small>
 
               </div>
 
             </div>
 
           `;
+
         }
       )
       .join("");
 
-  container
+
+  return `
+
+    <div
+      class="package-item"
+      data-package-number="${escapeHtml(trackingNumber)}"
+    >
+
+      <div class="package-item-top">
+
+        <div>
+
+          <strong>
+            ${escapeHtml(label)}
+          </strong>
+
+          <small>
+            ${escapeHtml(note)}
+          </small>
+
+        </div>
+
+        <span class="package-badge">
+          ${escapeHtml(
+            result.productType ||
+            "Japan Post"
+          )}
+        </span>
+
+      </div>
+
+
+      <div
+        class="package-status-line ${meta.className}"
+      >
+
+        <span class="package-status-dot">
+          ${meta.icon}
+        </span>
+
+        <div>
+
+          <strong>
+            ${escapeHtml(
+              latest.statusZh ||
+              meta.label
+            )}
+          </strong>
+
+          <small>
+            ${escapeHtml(
+              latest.status ||
+              ""
+            )}
+          </small>
+
+        </div>
+
+      </div>
+
+
+      <div class="package-latest-meta">
+
+        <span>
+          ${escapeHtml(
+            latest.date ||
+            "—"
+          )}
+        </span>
+
+        ${
+          location
+            ? `
+              <span>
+                ${escapeHtml(location)}
+              </span>
+            `
+            : ""
+        }
+
+      </div>
+
+
+      ${
+        latest.detail
+          ? `
+            <div class="package-detail">
+              ${escapeHtml(latest.detail)}
+            </div>
+          `
+          : ""
+      }
+
+
+      <code>
+        ${escapeHtml(trackingNumber)}
+      </code>
+
+
+      ${
+        historyHtml
+          ? `
+            <div class="package-history">
+              ${historyHtml}
+            </div>
+          `
+          : ""
+      }
+
+
+      <div class="package-actions">
+
+        <a
+          href="${escapeHtml(officialUrl)}"
+          target="_blank"
+          rel="noopener"
+        >
+          官方详情
+        </a>
+
+        <button
+          type="button"
+          class="copy-tracking"
+          data-tracking="${escapeHtml(trackingNumber)}"
+        >
+          复制单号
+        </button>
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+function bindPackageButtons() {
+  document
     .querySelectorAll(
       ".copy-tracking"
     )
@@ -264,6 +668,234 @@ function renderPackages() {
     );
 }
 
+
+async function loadPackages() {
+  const container =
+    document.getElementById(
+      "packageList"
+    );
+
+  const refreshButton =
+    document.getElementById(
+      "refreshPackages"
+    );
+
+  if (!container) {
+    return;
+  }
+
+  const packages =
+    Array.isArray(
+      cfg.JAPAN_POST_PACKAGES
+    )
+      ? cfg.JAPAN_POST_PACKAGES
+      : [];
+
+  if (
+    packages.length === 0
+  ) {
+    renderPackageSkeletons();
+    return;
+  }
+
+  refreshButton
+    ?.classList
+    .add(
+      "spinning"
+    );
+
+  try {
+    const numbers =
+      packages
+        .map(
+          item =>
+            String(
+              item.trackingNumber ||
+              ""
+            )
+            .trim()
+            .toUpperCase()
+        )
+        .filter(Boolean);
+
+    const api =
+      String(
+        cfg.TRANSIT_API_URL ||
+        ""
+      )
+      .replace(
+        /\/+$/,
+        ""
+      );
+
+    if (!api) {
+      throw new Error(
+        "没有配置 Worker 地址"
+      );
+    }
+
+    const response =
+      await fetch(
+        `${api}/japan-post?tracking=${encodeURIComponent(
+          numbers.join(",")
+        )}`,
+        {
+          cache:
+            "no-store"
+        }
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        `Worker HTTP ${response.status}: ${await response.text()}`
+      );
+    }
+
+    const data =
+      await response.json();
+
+    if (data.error) {
+      throw new Error(
+        data.detail ||
+        data.error
+      );
+    }
+
+    const results =
+      Array.isArray(
+        data.packages
+      )
+        ? data.packages
+        : [];
+
+    const byNumber =
+      new Map(
+        results.map(
+          item => [
+            String(
+              item.trackingNumber ||
+              ""
+            )
+            .toUpperCase(),
+            item
+          ]
+        )
+      );
+
+    container.innerHTML =
+      packages
+        .map(
+          (item, index) =>
+            renderPackageResult(
+              item,
+              byNumber.get(
+                String(
+                  item.trackingNumber ||
+                  ""
+                )
+                .trim()
+                .toUpperCase()
+              ),
+              index
+            )
+        )
+        .join("");
+
+    bindPackageButtons();
+
+    const update =
+      document.getElementById(
+        "packageUpdatedAt"
+      );
+
+    if (update) {
+      const generated =
+        new Date(
+          data.generatedAt ||
+          Date.now()
+        );
+
+      update.textContent =
+        `更新 ${generated.toLocaleTimeString(
+          "zh-CN",
+          {
+            hour:
+              "2-digit",
+            minute:
+              "2-digit"
+          }
+        )}`;
+    }
+  }
+
+  catch (error) {
+    console.error(
+      "Japan Post:",
+      error
+    );
+
+    container.innerHTML =
+      packages
+        .map(
+          (item, index) =>
+            renderPackageResult(
+              item,
+              {
+                ok:
+                  false,
+
+                error:
+                  error.message ||
+                  String(error),
+
+                officialUrl:
+                  japanPostTrackingUrl(
+                    item.trackingNumber
+                  )
+              },
+              index
+            )
+        )
+        .join("");
+
+    bindPackageButtons();
+  }
+
+  finally {
+    refreshButton
+      ?.classList
+      .remove(
+        "spinning"
+      );
+  }
+}
+
+
+renderPackageSkeletons();
+
+document
+  .getElementById(
+    "refreshPackages"
+  )
+  ?.addEventListener(
+    "click",
+    loadPackages
+  );
+
+loadPackages();
+
+setInterval(
+  loadPackages,
+  Number(
+    cfg.JAPAN_POST_REFRESH_MS ||
+    600000
+  )
+);
+
+
+// ============================================================
+// 第二张重要通知
+// ============================================================
 
 function renderImportantNotice() {
   const notice =
@@ -339,6 +971,8 @@ function renderImportantNotice() {
       true;
   }
 }
+
+renderImportantNotice();
 
 
 // ============================================================
@@ -552,9 +1186,6 @@ document
   );
 
 
-
-renderPackages();
-renderImportantNotice();
 
 // ============================================================
 // 公交

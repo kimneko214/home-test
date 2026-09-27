@@ -10,6 +10,7 @@
 //   /arrivals?stops=2407,322,2097
 //   /vehicle?tripId=...&route=27&stopId=322
 //   /route-vehicles?route=27
+//   /japan-post?tracking=CN134577206JP,LX331479647JP
 //
 // Secret:
 //   TRANSITLAND_API_KEY
@@ -1723,6 +1724,590 @@ async function handleVehicle(
 }
 
 
+
+// ============================================================
+// Japan Post live tracking
+//
+// 从日本邮政官方追踪结果页读取“履歴情報”表格，
+// 转换成 JSON 给主页显示。
+// ============================================================
+
+function decodeBasicHtmlEntities(text) {
+  return String(text || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
+      String.fromCodePoint(parseInt(hex, 16))
+    )
+    .replace(/&#([0-9]+);/g, (_, dec) =>
+      String.fromCodePoint(parseInt(dec, 10))
+    );
+}
+
+function htmlCellToText(html) {
+  return decodeBasicHtmlEntities(
+    String(html || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p\s*>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+  )
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+function extractTableBySummary(html, summary) {
+  const escaped = String(summary)
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const match = String(html || "").match(
+    new RegExp(
+      `<table\\b[^>]*summary\\s*=\\s*["']${escaped}["'][^>]*>([\\s\\S]*?)<\\/table>`,
+      "i"
+    )
+  );
+
+  return match ? match[1] : null;
+}
+
+function extractTdCells(rowHtml) {
+  const cells = [];
+  const regex =
+    /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
+
+  let match;
+
+  while (
+    (match = regex.exec(rowHtml)) !== null
+  ) {
+    cells.push(
+      htmlCellToText(match[1])
+    );
+  }
+
+  return cells;
+}
+
+function parseJapanPostHistory(html) {
+  const table =
+    extractTableBySummary(
+      html,
+      "履歴情報"
+    );
+
+  if (!table) {
+    return [];
+  }
+
+  const rows = [];
+  const rowRegex =
+    /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+
+  let match;
+
+  while (
+    (match = rowRegex.exec(table)) !== null
+  ) {
+    const cells =
+      extractTdCells(match[1]);
+
+    if (
+      cells.length >= 2 &&
+      cells[1]
+    ) {
+      const officeParts =
+        String(cells[3] || "")
+          .split(/\n+/)
+          .map(v => v.trim())
+          .filter(Boolean);
+
+      const office =
+        officeParts[0] || "";
+
+      const officePostcode =
+        cells[5] ||
+        officeParts.find(
+          value =>
+            /^\d{3}-?\d{4}$/.test(value)
+        ) ||
+        "";
+
+      rows.push({
+        date:
+          cells[0] || "",
+
+        status:
+          cells[1] || "",
+
+        detail:
+          cells[2] || "",
+
+        office,
+
+        region:
+          cells[4] || "",
+
+        postcode:
+          officePostcode
+      });
+
+      continue;
+    }
+
+    if (
+      rows.length > 0 &&
+      cells.length > 0
+    ) {
+      const postcode =
+        cells
+          .join(" ")
+          .match(
+            /\b\d{3}-?\d{4}\b/
+          )?.[0];
+
+      if (
+        postcode &&
+        !rows[
+          rows.length - 1
+        ].postcode
+      ) {
+        rows[
+          rows.length - 1
+        ].postcode =
+          postcode;
+      }
+    }
+  }
+
+  return rows;
+}
+
+function parseJapanPostProductType(html) {
+  const table =
+    extractTableBySummary(
+      html,
+      "配達状況詳細"
+    );
+
+  if (!table) {
+    return "";
+  }
+
+  const rowRegex =
+    /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+
+  let match;
+
+  while (
+    (match = rowRegex.exec(table)) !== null
+  ) {
+    const cells =
+      extractTdCells(match[1]);
+
+    if (
+      cells.length >= 2
+    ) {
+      return cells[1] || "";
+    }
+  }
+
+  return "";
+}
+
+function parseJapanPostError(html) {
+  const table =
+    extractTableBySummary(
+      html,
+      "照会結果"
+    );
+
+  if (!table) {
+    return null;
+  }
+
+  const text =
+    htmlCellToText(table);
+
+  return (
+    text ||
+    "追踪号码暂无可显示的信息"
+  );
+}
+
+function classifyJapanPostStatus(status) {
+  const value =
+    String(status || "");
+
+  if (
+    /お届け先にお届け済み|お届け済み|配達完了/.test(value)
+  ) {
+    return "delivered";
+  }
+
+  if (
+    /配達局から出発|持ち出し中/.test(value)
+  ) {
+    return "out_for_delivery";
+  }
+
+  if (
+    /差出人に返送済み|差出人に返送|返送/.test(value)
+  ) {
+    return "returned";
+  }
+
+  if (
+    /通関|税関/.test(value)
+  ) {
+    return "customs";
+  }
+
+  if (
+    /保管/.test(value)
+  ) {
+    return "held";
+  }
+
+  if (
+    /引受/.test(value)
+  ) {
+    return "accepted";
+  }
+
+  if (
+    /発送|到着|国際交換局/.test(value)
+  ) {
+    return "in_transit";
+  }
+
+  return "unknown";
+}
+
+function translateJapanPostStatus(status) {
+  const value =
+    String(status || "");
+
+  const exact = {
+    "引受":
+      "已收件",
+
+    "国際交換局に到着":
+      "到达国际交换局",
+
+    "国際交換局から発送":
+      "已从国际交换局发出",
+
+    "通関手続中":
+      "清关处理中",
+
+    "到着":
+      "已到达",
+
+    "配達局から出発":
+      "正在派送",
+
+    "持ち出し中":
+      "正在派送",
+
+    "保管":
+      "保管中",
+
+    "お届け先にお届け済み":
+      "已送达",
+
+    "お届け済み":
+      "已送达",
+
+    "差出人に返送":
+      "正在退回寄件人",
+
+    "差出人に返送済み":
+      "已退回寄件人"
+  };
+
+  if (exact[value]) {
+    return exact[value];
+  }
+
+  if (
+    /お届け.*済み|配達完了/.test(value)
+  ) {
+    return "已送达";
+  }
+
+  if (
+    /配達局から出発|持ち出し/.test(value)
+  ) {
+    return "正在派送";
+  }
+
+  if (
+    /国際交換局から発送/.test(value)
+  ) {
+    return "已从国际交换局发出";
+  }
+
+  if (
+    /国際交換局に到着/.test(value)
+  ) {
+    return "到达国际交换局";
+  }
+
+  if (
+    /通関|税関/.test(value)
+  ) {
+    return "海关处理中";
+  }
+
+  if (
+    /返送/.test(value)
+  ) {
+    return "退回中";
+  }
+
+  if (
+    /発送/.test(value)
+  ) {
+    return "运输中";
+  }
+
+  if (
+    /到着/.test(value)
+  ) {
+    return "已到达";
+  }
+
+  return value || "状态未知";
+}
+
+async function fetchJapanPostTracking(
+  trackingNumber
+) {
+  const number =
+    String(trackingNumber || "")
+      .trim()
+      .toUpperCase();
+
+  if (
+    !/^[A-Z0-9]{11,13}$/.test(number)
+  ) {
+    return {
+      trackingNumber:
+        number,
+
+      ok:
+        false,
+
+      error:
+        "追踪号码格式不正确"
+    };
+  }
+
+  const officialUrl =
+    "https://trackings.post.japanpost.jp/services/srv/search/direct" +
+    `?reqCodeNo1=${encodeURIComponent(number)}` +
+    "&searchKind=S002" +
+    "&locale=ja";
+
+  const response =
+    await fetch(
+      officialUrl,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; PersonalDashboard/1.0)",
+          "Accept-Language":
+            "ja,en;q=0.8"
+        },
+
+        cf: {
+          cacheEverything:
+            true,
+
+          cacheTtl:
+            300
+        }
+      }
+    );
+
+  if (!response.ok) {
+    return {
+      trackingNumber:
+        number,
+
+      ok:
+        false,
+
+      officialUrl,
+
+      error:
+        `Japan Post HTTP ${response.status}`
+    };
+  }
+
+  const html =
+    await response.text();
+
+  const error =
+    parseJapanPostError(
+      html
+    );
+
+  const history =
+    parseJapanPostHistory(
+      html
+    );
+
+  if (
+    error &&
+    history.length === 0
+  ) {
+    return {
+      trackingNumber:
+        number,
+
+      ok:
+        false,
+
+      officialUrl,
+
+      error
+    };
+  }
+
+  if (
+    history.length === 0
+  ) {
+    return {
+      trackingNumber:
+        number,
+
+      ok:
+        false,
+
+      officialUrl,
+
+      error:
+        "日本邮政暂时没有返回可解析的追踪历史"
+    };
+  }
+
+  const latest =
+    history[
+      history.length - 1
+    ];
+
+  return {
+    trackingNumber:
+      number,
+
+    ok:
+      true,
+
+    officialUrl,
+
+    productType:
+      parseJapanPostProductType(
+        html
+      ),
+
+    latest: {
+      ...latest,
+
+      statusZh:
+        translateJapanPostStatus(
+          latest.status
+        ),
+
+      category:
+        classifyJapanPostStatus(
+          latest.status
+        )
+    },
+
+    history:
+      history
+        .slice(-4)
+        .reverse()
+        .map(item => ({
+          ...item,
+
+          statusZh:
+            translateJapanPostStatus(
+              item.status
+            ),
+
+          category:
+            classifyJapanPostStatus(
+              item.status
+            )
+        }))
+  };
+}
+
+async function handleJapanPost(
+  url
+) {
+  const raw =
+    url.searchParams.get(
+      "tracking"
+    ) || "";
+
+  const numbers =
+    [
+      ...new Set(
+        raw
+          .split(",")
+          .map(
+            value =>
+              value
+                .trim()
+                .toUpperCase()
+          )
+          .filter(Boolean)
+      )
+    ]
+    .slice(
+      0,
+      10
+    );
+
+  if (
+    numbers.length === 0
+  ) {
+    return jsonResponse(
+      {
+        error:
+          "Missing tracking"
+      },
+      400
+    );
+  }
+
+  const packages =
+    await Promise.all(
+      numbers.map(
+        fetchJapanPostTracking
+      )
+    );
+
+  return jsonResponse({
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    source:
+      "Japan Post official tracking page",
+
+    packages
+  });
+}
+
 // ============================================================
 // Router
 // ============================================================
@@ -1759,13 +2344,14 @@ export default {
       return jsonResponse({
         ok: true,
         service:
-          "LTC Home Bus 2 v4",
+          "LTC Home Bus 2 v5 + Japan Post",
         homepage:
           "https://kimneko214.github.io/home-test/",
         endpoints: [
           "/arrivals?stops=2407,322,2097",
           "/vehicle?tripId=...&route=27&stopId=322",
-          "/route-vehicles?route=27"
+          "/route-vehicles?route=27",
+          "/japan-post?tracking=CN134577206JP,LX331479647JP"
         ]
       });
     }
@@ -1796,6 +2382,15 @@ export default {
         return await handleRouteVehicles(
           url,
           env
+        );
+      }
+
+      if (
+        url.pathname ===
+        "/japan-post"
+      ) {
+        return await handleJapanPost(
+          url
         );
       }
 

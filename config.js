@@ -56,6 +56,10 @@ const CONFIG = {
 
   },
 
+  // 日本邮政状态每 10 分钟自动刷新一次
+  JAPAN_POST_REFRESH_MS:
+    10 * 60 * 1000,
+
   JAPAN_POST_PACKAGES: [
 
     {
