@@ -1788,7 +1788,7 @@ if (
       navigator
         .serviceWorker
         .register(
-          "./sw.js"
+          "./sw.js?v=8"
         )
         .catch(
           () => {}

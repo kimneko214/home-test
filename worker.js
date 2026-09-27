@@ -2150,8 +2150,33 @@ async function fetchJapanPostTracking(
     };
   }
 
-  const html =
-    await response.text();
+  // 日本邮政追踪页使用日文传统编码。
+  // response.text() 会按 UTF-8 解码，导致“国際交換局”等文字乱码。
+  // Cloudflare Workers 的 TextDecoder 支持 WHATWG CJK 编码，
+  // 因此这里显式按 Shift_JIS / Windows-31J 解码原始字节。
+  const rawBytes =
+    await response.arrayBuffer();
+
+  let html;
+
+  try {
+    html =
+      new TextDecoder(
+        "shift_jis"
+      ).decode(
+        rawBytes
+      );
+  }
+
+  catch (error) {
+    // 极少数旧 runtime 的备用写法。
+    html =
+      new TextDecoder(
+        "windows-31j"
+      ).decode(
+        rawBytes
+      );
+  }
 
   const error =
     parseJapanPostError(
@@ -2344,7 +2369,7 @@ export default {
       return jsonResponse({
         ok: true,
         service:
-          "LTC Home Bus 2 v5 + Japan Post",
+          "LTC Home Bus 2 v6 + Japan Post Shift_JIS",
         homepage:
           "https://kimneko214.github.io/home-test/",
         endpoints: [
