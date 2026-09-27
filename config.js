@@ -83,10 +83,10 @@ const CONFIG = {
     title: "重要提醒",
 
     text:
-      "暂无其他重要通知。",
+      "每天都要好好吃饭",
 
     detail:
-      "以后可以直接在 config.js 里改成出愿截止、航班、酒店、纪念日或学校事项。",
+      "多吃肉",
 
     buttonText:
       "",
