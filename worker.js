@@ -38,8 +38,8 @@ const LOCAL_TIME_ZONE = "America/Toronto";
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
     "Cache-Control": "no-store"
   };
 }
@@ -1794,55 +1794,96 @@ function extractTdCells(rowHtml) {
 }
 
 function parseJapanPostHistory(html) {
-  const table =
-    extractTableBySummary(
-      html,
-      "履歴情報"
-    );
+  // 不再依赖日文 summary="履歴情報"。
+  // Japan Post 英文页的表格标题会变化，但追踪历史的第一列一定是日期，
+  // 第二列是状态，所以直接扫描所有 table / tr 更稳。
+  const tables =
+    String(html || "")
+      .match(
+        /<table\b[^>]*>[\s\S]*?<\/table>/gi
+      ) || [];
 
-  if (!table) {
-    return [];
-  }
+  let bestRows = [];
 
-  const rows = [];
-  const rowRegex =
-    /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
-
-  let match;
-
-  while (
-    (match = rowRegex.exec(table)) !== null
+  for (
+    const table of tables
   ) {
-    const cells =
-      extractTdCells(match[1]);
+    const rows = [];
+    const rowRegex =
+      /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
 
-    if (
-      cells.length >= 2 &&
-      cells[1]
+    let match;
+
+    while (
+      (match = rowRegex.exec(table)) !== null
     ) {
+      const cells =
+        extractTdCells(
+          match[1]
+        );
+
+      if (
+        cells.length < 2
+      ) {
+        continue;
+      }
+
+      const date =
+        String(
+          cells[0] || ""
+        ).trim();
+
+      const status =
+        String(
+          cells[1] || ""
+        ).trim();
+
+      // 英文页通常类似：
+      // Sep 26 16:07
+      // 日文页通常类似：
+      // 2026/09/26 16:07
+      const looksLikeDate =
+        /(?:\d{4}\/\d{1,2}\/\d{1,2}|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b|\d{1,2}\/\d{1,2})/i
+          .test(
+            date
+          );
+
+      if (
+        !looksLikeDate ||
+        !status
+      ) {
+        continue;
+      }
+
       const officeParts =
-        String(cells[3] || "")
+        String(
+          cells[3] || ""
+        )
           .split(/\n+/)
-          .map(v => v.trim())
+          .map(
+            value =>
+              value.trim()
+          )
           .filter(Boolean);
 
       const office =
-        officeParts[0] || "";
+        officeParts[0] ||
+        "";
 
-      const officePostcode =
+      const postcode =
         cells[5] ||
         officeParts.find(
           value =>
-            /^\d{3}-?\d{4}$/.test(value)
+            /^\d{3}-?\d{4}$/.test(
+              value
+            )
         ) ||
         "";
 
       rows.push({
-        date:
-          cells[0] || "",
+        date,
 
-        status:
-          cells[1] || "",
+        status,
 
         detail:
           cells[2] || "",
@@ -1852,91 +1893,46 @@ function parseJapanPostHistory(html) {
         region:
           cells[4] || "",
 
-        postcode:
-          officePostcode
+        postcode
       });
-
-      continue;
     }
 
     if (
-      rows.length > 0 &&
-      cells.length > 0
+      rows.length >
+      bestRows.length
     ) {
-      const postcode =
-        cells
-          .join(" ")
-          .match(
-            /\b\d{3}-?\d{4}\b/
-          )?.[0];
-
-      if (
-        postcode &&
-        !rows[
-          rows.length - 1
-        ].postcode
-      ) {
-        rows[
-          rows.length - 1
-        ].postcode =
-          postcode;
-      }
+      bestRows =
+        rows;
     }
   }
 
-  return rows;
+  return bestRows;
 }
 
 function parseJapanPostProductType(html) {
-  const table =
-    extractTableBySummary(
-      html,
-      "配達状況詳細"
-    );
-
-  if (!table) {
-    return "";
-  }
-
-  const rowRegex =
-    /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
-
-  let match;
-
-  while (
-    (match = rowRegex.exec(table)) !== null
-  ) {
-    const cells =
-      extractTdCells(match[1]);
-
-    if (
-      cells.length >= 2
-    ) {
-      return cells[1] || "";
-    }
-  }
-
+  // 产品类型只是主页右上角的小标签。
+  // 为了不再依赖日本邮政页面的语言/编码，这里不给它强制解析。
   return "";
 }
 
 function parseJapanPostError(html) {
-  const table =
-    extractTableBySummary(
-      html,
-      "照会結果"
+  const text =
+    htmlCellToText(
+      String(
+        html || ""
+      )
     );
 
-  if (!table) {
-    return null;
+  if (
+    /お問い合わせ番号が見つかりません|not found|no information|cannot be found/i
+      .test(
+        text
+      )
+  ) {
+    return "日本邮政暂时没有这个号码的追踪记录";
   }
 
-  const text =
-    htmlCellToText(table);
-
-  return (
-    text ||
-    "追踪号码暂无可显示的信息"
-  );
+  return null;
 }
 
 function classifyJapanPostStatus(status) {
@@ -1944,43 +1940,64 @@ function classifyJapanPostStatus(status) {
     String(status || "");
 
   if (
-    /お届け先にお届け済み|お届け済み|配達完了/.test(value)
+    /Final delivery|delivered|お届け先にお届け済み|お届け済み|配達完了/i
+      .test(
+        value
+      )
   ) {
     return "delivered";
   }
 
   if (
-    /配達局から出発|持ち出し中/.test(value)
+    /Item out for physical delivery|Allocated to delivery staff|Out for delivery|配達局から出発|持ち出し中/i
+      .test(
+        value
+      )
   ) {
     return "out_for_delivery";
   }
 
   if (
-    /差出人に返送済み|差出人に返送|返送/.test(value)
+    /Return to Sender|Returned to Sender|差出人に返送済み|差出人に返送|返送/i
+      .test(
+        value
+      )
   ) {
     return "returned";
   }
 
   if (
-    /通関|税関/.test(value)
+    /Customs|通関|税関/i
+      .test(
+        value
+      )
   ) {
     return "customs";
   }
 
   if (
-    /保管/.test(value)
+    /Retention|Held|保管/i
+      .test(
+        value
+      )
   ) {
     return "held";
   }
 
   if (
-    /引受/.test(value)
+    /Posting\/Collection|引受/i
+      .test(
+        value
+      )
   ) {
     return "accepted";
   }
 
   if (
-    /発送|到着|国際交換局/.test(value)
+    /Arrival|Dispatch|Departure|Processing|En route|exchange|発送|到着|国際交換局/i
+      .test(
+        value
+      )
   ) {
     return "in_transit";
   }
@@ -1990,9 +2007,67 @@ function classifyJapanPostStatus(status) {
 
 function translateJapanPostStatus(status) {
   const value =
-    String(status || "");
+    String(status || "")
+      .trim();
 
   const exact = {
+    "Posting/Collection":
+      "已收件",
+
+    "Arrival at outward office of exchange":
+      "到达日本国际交换局",
+
+    "Dispatch from outward office of exchange":
+      "已从日本国际交换局发出",
+
+    "Departure from outward office of exchange":
+      "已从日本国际交换局发出",
+
+    "Arrival at inward office of exchange":
+      "已到达目的地国际交换局",
+
+    "Departure from inward office of exchange":
+      "已离开目的地国际交换局",
+
+    "Item presented to import Customs":
+      "已提交进口海关",
+
+    "In Customs":
+      "清关处理中",
+
+    "Held by import Customs":
+      "进口海关处理中",
+
+    "Item returned from import Customs":
+      "已完成进口海关处理",
+
+    "Processing at delivery Post Office":
+      "正在投递邮局处理",
+
+    "Allocated to delivery staff":
+      "已交给投递员",
+
+    "Item out for physical delivery":
+      "正在派送",
+
+    "Final delivery":
+      "已送达",
+
+    "Final delivery - Collected at counter":
+      "已在柜台领取",
+
+    "Retention":
+      "保管中",
+
+    "Absence. Attempted delivery":
+      "投递未成功",
+
+    "Return to Sender":
+      "正在退回寄件人",
+
+    "Returned to Sender":
+      "已退回寄件人",
+
     "引受":
       "已收件",
 
@@ -2021,68 +2096,91 @@ function translateJapanPostStatus(status) {
       "已送达",
 
     "お届け済み":
-      "已送达",
-
-    "差出人に返送":
-      "正在退回寄件人",
-
-    "差出人に返送済み":
-      "已退回寄件人"
+      "已送达"
   };
 
-  if (exact[value]) {
+  if (
+    exact[value]
+  ) {
     return exact[value];
   }
 
   if (
-    /お届け.*済み|配達完了/.test(value)
+    /Final delivery|delivered|お届け.*済み|配達完了/i
+      .test(
+        value
+      )
   ) {
     return "已送达";
   }
 
   if (
-    /配達局から出発|持ち出し/.test(value)
+    /Item out for physical delivery|Allocated to delivery staff|Out for delivery|配達局から出発|持ち出し/i
+      .test(
+        value
+      )
   ) {
     return "正在派送";
   }
 
   if (
-    /国際交換局から発送/.test(value)
+    /Arrival at inward office of exchange/i
+      .test(
+        value
+      )
   ) {
-    return "已从国际交换局发出";
+    return "已到达目的地国际交换局";
   }
 
   if (
-    /国際交換局に到着/.test(value)
+    /Dispatch from outward office of exchange/i
+      .test(
+        value
+      )
   ) {
-    return "到达国际交换局";
+    return "已从日本国际交换局发出";
   }
 
   if (
-    /通関|税関/.test(value)
+    /Customs|通関|税関/i
+      .test(
+        value
+      )
   ) {
     return "海关处理中";
   }
 
   if (
-    /返送/.test(value)
+    /Return|返送/i
+      .test(
+        value
+      )
   ) {
     return "退回中";
   }
 
   if (
-    /発送/.test(value)
-  ) {
-    return "运输中";
-  }
-
-  if (
-    /到着/.test(value)
+    /Arrival|到着/i
+      .test(
+        value
+      )
   ) {
     return "已到达";
   }
 
-  return value || "状态未知";
+  if (
+    /Dispatch|Departure|Processing|En route|発送/i
+      .test(
+        value
+      )
+  ) {
+    return "运输中";
+  }
+
+  return (
+    value ||
+    "状态未知"
+  );
 }
 
 async function fetchJapanPostTracking(
@@ -2112,7 +2210,7 @@ async function fetchJapanPostTracking(
     "https://trackings.post.japanpost.jp/services/srv/search/direct" +
     `?reqCodeNo1=${encodeURIComponent(number)}` +
     "&searchKind=S002" +
-    "&locale=ja";
+    "&locale=en";
 
   const response =
     await fetch(
@@ -2150,33 +2248,10 @@ async function fetchJapanPostTracking(
     };
   }
 
-  // 日本邮政追踪页使用日文传统编码。
-  // response.text() 会按 UTF-8 解码，导致“国際交換局”等文字乱码。
-  // Cloudflare Workers 的 TextDecoder 支持 WHATWG CJK 编码，
-  // 因此这里显式按 Shift_JIS / Windows-31J 解码原始字节。
-  const rawBytes =
-    await response.arrayBuffer();
-
-  let html;
-
-  try {
-    html =
-      new TextDecoder(
-        "shift_jis"
-      ).decode(
-        rawBytes
-      );
-  }
-
-  catch (error) {
-    // 极少数旧 runtime 的备用写法。
-    html =
-      new TextDecoder(
-        "windows-31j"
-      ).decode(
-        rawBytes
-      );
-  }
+  // 使用日本邮政官方英文结果页。
+  // 英文状态避免日文页面内部历史数据的乱码问题。
+  const html =
+    await response.text();
 
   const error =
     parseJapanPostError(
@@ -2333,6 +2408,197 @@ async function handleJapanPost(
   });
 }
 
+
+// ============================================================
+// Visit logging (Cloudflare D1)
+//
+// D1 binding: VISITS_DB
+// Secret:      ADMIN_KEY
+// ============================================================
+
+function cleanLogText(value, maxLength = 500) {
+  return String(value ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function getClientIp(request) {
+  return (
+    request.headers.get("CF-Connecting-IP") ||
+    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
+    "unknown"
+  );
+}
+
+async function handleVisit(request, env) {
+  if (!env.VISITS_DB) {
+    return jsonResponse(
+      { ok: false, error: "VISITS_DB binding is missing" },
+      503
+    );
+  }
+
+  let body = {};
+
+  try {
+    body = await request.json();
+  } catch (_) {
+    body = {};
+  }
+
+  const cf = request.cf || {};
+  const now = new Date().toISOString();
+  const ip = cleanLogText(getClientIp(request), 100);
+  const page = cleanLogText(body.page || "/", 500);
+  const referrer = cleanLogText(body.referrer || "", 1000);
+  const language = cleanLogText(
+    body.language || request.headers.get("Accept-Language") || "",
+    200
+  );
+  const userAgent = cleanLogText(
+    request.headers.get("User-Agent") || "",
+    1000
+  );
+
+  await env.VISITS_DB.prepare(`
+    INSERT INTO visits (
+      visited_at,
+      ip,
+      country,
+      region,
+      city,
+      timezone,
+      asn,
+      colo,
+      user_agent,
+      page,
+      referrer,
+      language
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    now,
+    ip,
+    cleanLogText(cf.country || "", 20),
+    cleanLogText(cf.region || cf.regionCode || "", 100),
+    cleanLogText(cf.city || "", 100),
+    cleanLogText(cf.timezone || "", 100),
+    Number.isFinite(Number(cf.asn)) ? Number(cf.asn) : null,
+    cleanLogText(cf.colo || "", 20),
+    userAgent,
+    page,
+    referrer,
+    language
+  ).run();
+
+  return jsonResponse({ ok: true });
+}
+
+function isAdmin(request, env) {
+  const expected = String(env.ADMIN_KEY || "");
+  const provided = String(request.headers.get("X-Admin-Key") || "");
+
+  if (!expected || !provided) return false;
+
+  // Constant-time-ish comparison for short secrets in Workers JS.
+  if (expected.length !== provided.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < expected.length; i += 1) {
+    diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+async function handleAdminVisits(request, url, env) {
+  if (!env.VISITS_DB) {
+    return jsonResponse(
+      { error: "VISITS_DB binding is missing" },
+      503
+    );
+  }
+
+  if (!env.ADMIN_KEY) {
+    return jsonResponse(
+      { error: "ADMIN_KEY secret is missing" },
+      503
+    );
+  }
+
+  if (!isAdmin(request, env)) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+
+  const limit = Math.min(
+    Math.max(Number(url.searchParams.get("limit")) || 100, 1),
+    500
+  );
+  const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
+  const ipFilter = cleanLogText(url.searchParams.get("ip") || "", 100);
+
+  let rowsQuery;
+  let countQuery;
+
+  if (ipFilter) {
+    rowsQuery = env.VISITS_DB.prepare(`
+      SELECT *
+      FROM visits
+      WHERE ip LIKE ?
+      ORDER BY id DESC
+      LIMIT ? OFFSET ?
+    `).bind(`%${ipFilter}%`, limit, offset);
+
+    countQuery = env.VISITS_DB.prepare(`
+      SELECT COUNT(*) AS count
+      FROM visits
+      WHERE ip LIKE ?
+    `).bind(`%${ipFilter}%`);
+  } else {
+    rowsQuery = env.VISITS_DB.prepare(`
+      SELECT *
+      FROM visits
+      ORDER BY id DESC
+      LIMIT ? OFFSET ?
+    `).bind(limit, offset);
+
+    countQuery = env.VISITS_DB.prepare(`
+      SELECT COUNT(*) AS count
+      FROM visits
+    `);
+  }
+
+  const [rowsResult, countResult, uniqueResult, last24Result] =
+    await Promise.all([
+      rowsQuery.all(),
+      countQuery.first(),
+      env.VISITS_DB.prepare(`
+        SELECT COUNT(DISTINCT ip) AS count
+        FROM visits
+      `).first(),
+      env.VISITS_DB.prepare(`
+        SELECT COUNT(*) AS count
+        FROM visits
+        WHERE datetime(visited_at) >= datetime('now', '-24 hours')
+      `).first()
+    ]);
+
+  return jsonResponse({
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    stats: {
+      total: Number(countResult?.count || 0),
+      uniqueIps: Number(uniqueResult?.count || 0),
+      last24Hours: Number(last24Result?.count || 0)
+    },
+    pagination: {
+      limit,
+      offset,
+      returned: rowsResult.results?.length || 0
+    },
+    visits: rowsResult.results || []
+  });
+}
+
 // ============================================================
 // Router
 // ============================================================
@@ -2351,37 +2617,63 @@ export default {
     }
 
     if (
-      !env.TRANSITLAND_API_KEY
-    ) {
-      return jsonResponse(
-        {
-          error:
-            "TRANSITLAND_API_KEY secret is missing"
-        },
-        500
-      );
-    }
-
-    if (
       url.pathname === "/" ||
       url.pathname === "/health"
     ) {
       return jsonResponse({
         ok: true,
         service:
-          "LTC Home Bus 2 v6 + Japan Post Shift_JIS",
+          "LTC Home Bus 2 v10 + Visit Log",
         homepage:
           "https://kimneko214.github.io/home-test/",
         endpoints: [
           "/arrivals?stops=2407,322,2097",
           "/vehicle?tripId=...&route=27&stopId=322",
           "/route-vehicles?route=27",
-          "/japan-post?tracking=CN134577206JP,LX331479647JP"
+          "/japan-post?tracking=CN134577206JP,LX331479647JP",
+          "POST /visit",
+          "GET /admin/visits (X-Admin-Key required)"
         ]
       });
     }
 
     try {
+      if (
+        url.pathname === "/visit" &&
+        request.method === "POST"
+      ) {
+        return await handleVisit(
+          request,
+          env
+        );
+      }
+
+      if (
+        url.pathname === "/admin/visits" &&
+        request.method === "GET"
+      ) {
+        return await handleAdminVisits(
+          request,
+          url,
+          env
+        );
+      }
+
+      const isTransitEndpoint =
+        url.pathname === "/arrivals" ||
+        url.pathname === "/vehicle" ||
+        url.pathname === "/route-vehicles";
+
+      if (
+        isTransitEndpoint &&
+        !env.TRANSITLAND_API_KEY
+      ) {
+        return jsonResponse(
+          { error: "TRANSITLAND_API_KEY secret is missing" },
+          500
+        );
+      }
+
       if (
         url.pathname === "/arrivals"
       ) {

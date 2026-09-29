@@ -1,13 +1,15 @@
-const CACHE = "home-test-v8";
+const CACHE = "home-test-v10";
 
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css",
-  "./config.js",
-  "./app.js",
+  "./style.css?v=10",
+  "./config.js?v=10",
+  "./visit.js?v=10",
+  "./app.js?v=10",
   "./bus.html",
   "./route.html",
+  "./admin.html",
   "./manifest.webmanifest",
   "./icon.svg"
 ];

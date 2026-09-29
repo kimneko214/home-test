@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>访问记录 · Personal Dashboard</title>
+  <style>
+    :root{--bg:#f4f4f1;--card:#fff;--text:#1d1d1f;--muted:#8a8a8e;--line:#e5e5e0;--dark:#1d1d1f;--bad:#a34c43}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC",sans-serif}
+    main{width:min(1180px,calc(100% - 28px));margin:28px auto 70px}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}.eyebrow{font-size:12px;letter-spacing:.18em;color:var(--muted)}h1{margin:7px 0 5px;font-size:34px}p{margin:0;color:var(--muted);font-size:13px}.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.035);margin-bottom:16px}.login{display:grid;grid-template-columns:1fr auto;gap:10px}input,button{font:inherit;border-radius:12px;border:1px solid var(--line);padding:12px 14px}input{background:#fafaf8;min-width:0}button{background:var(--dark);color:#fff;border-color:var(--dark);cursor:pointer}.secondary{background:#efefec;color:#333;border-color:#efefec}.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.toolbar input{width:220px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{padding:15px;border-radius:16px;background:#f7f7f4}.stat strong{display:block;font-size:26px}.stat span{font-size:11px;color:var(--muted)}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:16px}table{width:100%;border-collapse:collapse;min-width:1000px;background:#fff}th,td{text-align:left;padding:11px 12px;border-bottom:1px solid #eee;font-size:12px;vertical-align:top}th{position:sticky;top:0;background:#f8f8f6;color:#777;font-size:10px;letter-spacing:.04em}tr:last-child td{border-bottom:0}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.muted{color:var(--muted)}.ua{max-width:300px;white-space:normal;word-break:break-word}.pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px}.error{color:var(--bad);font-size:12px;margin-top:10px}.hidden{display:none!important}@media(max-width:650px){main{width:min(100% - 20px,1180px);margin-top:18px}.head{display:block}h1{font-size:29px}.login{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.toolbar input{width:100%}.card{padding:15px;border-radius:20px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="head">
+    <div><div class="eyebrow">PRIVATE · VISIT LOG</div><h1>访问记录</h1><p>管理员密钥只保存在当前标签页的 sessionStorage，不写入 GitHub。</p></div>
+    <a href="./" style="color:#333;text-decoration:none;font-size:13px">← 返回主页</a>
+  </div>
+
+  <section id="loginCard" class="card">
+    <div class="login">
+      <input id="adminKey" type="password" autocomplete="current-password" placeholder="输入 Cloudflare ADMIN_KEY">
+      <button id="loginBtn" type="button">查看记录</button>
+    </div>
+    <div id="loginError" class="error"></div>
+  </section>
+
+  <div id="dashboard" class="hidden">
+    <section class="card">
+      <div class="stats">
+        <div class="stat"><strong id="statTotal">—</strong><span>记录总数</span></div>
+        <div class="stat"><strong id="statUnique">—</strong><span>不同 IP</span></div>
+        <div class="stat"><strong id="stat24">—</strong><span>过去 24 小时访问</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <input id="ipFilter" type="search" placeholder="按 IP 搜索">
+        <button id="searchBtn" type="button">搜索</button>
+        <button id="refreshBtn" class="secondary" type="button">刷新</button>
+        <button id="logoutBtn" class="secondary" type="button">退出</button>
+      </div>
+      <div id="dataError" class="error"></div>
+    </section>
+
+    <section class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>时间</th><th>IP</th><th>地区</th><th>页面</th><th>网络</th><th>设备 / 浏览器</th><th>来源</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button id="prevBtn" class="secondary" type="button">上一页</button>
+        <span id="pageInfo" class="muted">—</span>
+        <button id="nextBtn" class="secondary" type="button">下一页</button>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="config.js?v=10"></script>
+<script>
+const api=String(CONFIG.TRANSIT_API_URL||"").replace(/\/+$/,"");
+const limit=100; let offset=0;
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function localTime(iso){try{return new Date(iso).toLocaleString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"})}catch{return iso}}
+function device(ua){ua=String(ua||"");let os=/iPhone/i.test(ua)?"iPhone":/iPad/i.test(ua)?"iPad":/Android/i.test(ua)?"Android":/Windows/i.test(ua)?"Windows":/Macintosh/i.test(ua)?"Mac":"其他";let br=/Edg\//.test(ua)?"Edge":/CriOS|Chrome\//.test(ua)?"Chrome":/Safari\//.test(ua)?"Safari":/Firefox\//.test(ua)?"Firefox":"浏览器";return `${os} · ${br}`}
+function key(){return sessionStorage.getItem("visitAdminKey")||""}
+async function load(){
+  const k=key(); if(!k)return;
+  $("dataError").textContent="";
+  const ip=$("ipFilter").value.trim();
+  const u=new URL(api+"/admin/visits"); u.searchParams.set("limit",limit);u.searchParams.set("offset",offset);if(ip)u.searchParams.set("ip",ip);
+  try{
+    const r=await fetch(u,{headers:{"X-Admin-Key":k},cache:"no-store"});
+    const d=await r.json(); if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`);
+    $("loginCard").classList.add("hidden");$("dashboard").classList.remove("hidden");
+    $("statTotal").textContent=d.stats.total;$("statUnique").textContent=d.stats.uniqueIps;$("stat24").textContent=d.stats.last24Hours;
+    $("rows").innerHTML=(d.visits||[]).map(v=>`<tr><td>${esc(localTime(v.visited_at))}</td><td class="mono">${esc(v.ip)}</td><td>${esc([v.city,v.region,v.country].filter(Boolean).join(" · ")||"—")}</td><td class="mono">${esc(v.page||"—")}</td><td>${esc(v.asn?`AS${v.asn}`:"—")}<br><span class="muted">${esc(v.colo||"")}</span></td><td><strong>${esc(device(v.user_agent))}</strong><br><span class="muted ua">${esc(v.user_agent||"")}</span></td><td>${esc(v.referrer||"直接访问")}</td></tr>`).join("")||'<tr><td colspan="7" class="muted">暂无记录</td></tr>';
+    const total=d.stats.total||0;$("pageInfo").textContent=`${offset+1}–${Math.min(offset+(d.visits||[]).length,total)} / ${total}`;$("prevBtn").disabled=offset===0;$("nextBtn").disabled=(d.visits||[]).length<limit;
+  }catch(e){if(String(e.message).includes("Unauthorized")){sessionStorage.removeItem("visitAdminKey");$("dashboard").classList.add("hidden");$("loginCard").classList.remove("hidden");$("loginError").textContent="密钥不正确。"}else{$("dataError").textContent=e.message}}
+}
+$("loginBtn").onclick=()=>{const v=$("adminKey").value.trim();if(!v)return;sessionStorage.setItem("visitAdminKey",v);$("loginError").textContent="";offset=0;load()};
+$("adminKey").addEventListener("keydown",e=>{if(e.key==="Enter")$("loginBtn").click()});
+$("refreshBtn").onclick=load;$("searchBtn").onclick=()=>{offset=0;load()};$("ipFilter").addEventListener("keydown",e=>{if(e.key==="Enter")$("searchBtn").click()});
+$("prevBtn").onclick=()=>{offset=Math.max(0,offset-limit);load()};$("nextBtn").onclick=()=>{offset+=limit;load()};
+$("logoutBtn").onclick=()=>{sessionStorage.removeItem("visitAdminKey");location.reload()};
+if(key())load();
+</script>
+</body>
+</html>
