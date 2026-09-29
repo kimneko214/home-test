@@ -2431,6 +2431,39 @@ function getClientIp(request) {
   );
 }
 
+
+async function ensureVisitSchema(db) {
+  // Safe to run repeatedly. This removes the need to manually execute
+  // schema.sql before the first visit/admin request.
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS visits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      visited_at TEXT NOT NULL,
+      ip TEXT NOT NULL,
+      country TEXT,
+      region TEXT,
+      city TEXT,
+      timezone TEXT,
+      asn INTEGER,
+      colo TEXT,
+      user_agent TEXT,
+      page TEXT,
+      referrer TEXT,
+      language TEXT
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_visits_visited_at
+    ON visits(visited_at DESC)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_visits_ip
+    ON visits(ip)
+  `).run();
+}
+
 async function handleVisit(request, env) {
   if (!env.VISITS_DB) {
     return jsonResponse(
@@ -2438,6 +2471,10 @@ async function handleVisit(request, env) {
       503
     );
   }
+
+  await ensureVisitSchema(
+    env.VISITS_DB
+  );
 
   let body = {};
 
@@ -2528,6 +2565,10 @@ async function handleAdminVisits(request, url, env) {
   if (!isAdmin(request, env)) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
+
+  await ensureVisitSchema(
+    env.VISITS_DB
+  );
 
   const limit = Math.min(
     Math.max(Number(url.searchParams.get("limit")) || 100, 1),
@@ -2623,7 +2664,7 @@ export default {
       return jsonResponse({
         ok: true,
         service:
-          "LTC Home Bus 2 v10 + Visit Log",
+          "LTC Home Bus 2 v10.2 + Visit Log",
         homepage:
           "https://kimneko214.github.io/home-test/",
         endpoints: [

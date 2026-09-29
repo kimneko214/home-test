@@ -282,15 +282,28 @@ async function load() {
 
     if (!response.ok) {
       const message =
-        data.error ||
-        data.detail ||
-        `HTTP ${response.status}`;
+        data.detail
+          ? `${data.error || "Worker error"}：${data.detail}`
+          : (
+              data.error ||
+              `HTTP ${response.status}`
+            );
 
       if (
         response.status === 401
       ) {
         throw new Error(
           "ADMIN_KEY 不正确。"
+        );
+      }
+
+      if (
+        /no such table:\s*visits/i.test(
+          message
+        )
+      ) {
+        throw new Error(
+          "D1 已绑定，但 visits 表不存在。v10.2 Worker 会自动创建它；请确认已经部署 v10.2 worker.js。"
         );
       }
 
