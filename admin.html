@@ -23,6 +23,7 @@
       <input id="adminKey" type="password" autocomplete="current-password" placeholder="输入 Cloudflare ADMIN_KEY">
       <button id="loginBtn" type="button">查看记录</button>
     </div>
+    <div id="loginStatus" style="margin-top:10px;color:#8a8a8e;font-size:12px"></div>
     <div id="loginError" class="error"></div>
   </section>
 
@@ -62,33 +63,540 @@
 </main>
 <script src="config.js?v=10"></script>
 <script>
-const api=String(CONFIG.TRANSIT_API_URL||"").replace(/\/+$/,"");
-const limit=100; let offset=0;
-const $=id=>document.getElementById(id);
-const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function localTime(iso){try{return new Date(iso).toLocaleString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"})}catch{return iso}}
-function device(ua){ua=String(ua||"");let os=/iPhone/i.test(ua)?"iPhone":/iPad/i.test(ua)?"iPad":/Android/i.test(ua)?"Android":/Windows/i.test(ua)?"Windows":/Macintosh/i.test(ua)?"Mac":"其他";let br=/Edg\//.test(ua)?"Edge":/CriOS|Chrome\//.test(ua)?"Chrome":/Safari\//.test(ua)?"Safari":/Firefox\//.test(ua)?"Firefox":"浏览器";return `${os} · ${br}`}
-function key(){return sessionStorage.getItem("visitAdminKey")||""}
-async function load(){
-  const k=key(); if(!k)return;
-  $("dataError").textContent="";
-  const ip=$("ipFilter").value.trim();
-  const u=new URL(api+"/admin/visits"); u.searchParams.set("limit",limit);u.searchParams.set("offset",offset);if(ip)u.searchParams.set("ip",ip);
-  try{
-    const r=await fetch(u,{headers:{"X-Admin-Key":k},cache:"no-store"});
-    const d=await r.json(); if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`);
-    $("loginCard").classList.add("hidden");$("dashboard").classList.remove("hidden");
-    $("statTotal").textContent=d.stats.total;$("statUnique").textContent=d.stats.uniqueIps;$("stat24").textContent=d.stats.last24Hours;
-    $("rows").innerHTML=(d.visits||[]).map(v=>`<tr><td>${esc(localTime(v.visited_at))}</td><td class="mono">${esc(v.ip)}</td><td>${esc([v.city,v.region,v.country].filter(Boolean).join(" · ")||"—")}</td><td class="mono">${esc(v.page||"—")}</td><td>${esc(v.asn?`AS${v.asn}`:"—")}<br><span class="muted">${esc(v.colo||"")}</span></td><td><strong>${esc(device(v.user_agent))}</strong><br><span class="muted ua">${esc(v.user_agent||"")}</span></td><td>${esc(v.referrer||"直接访问")}</td></tr>`).join("")||'<tr><td colspan="7" class="muted">暂无记录</td></tr>';
-    const total=d.stats.total||0;$("pageInfo").textContent=`${offset+1}–${Math.min(offset+(d.visits||[]).length,total)} / ${total}`;$("prevBtn").disabled=offset===0;$("nextBtn").disabled=(d.visits||[]).length<limit;
-  }catch(e){if(String(e.message).includes("Unauthorized")){sessionStorage.removeItem("visitAdminKey");$("dashboard").classList.add("hidden");$("loginCard").classList.remove("hidden");$("loginError").textContent="密钥不正确。"}else{$("dataError").textContent=e.message}}
+const FALLBACK_API =
+  "https://ltc-home-bus2.jiangfan0611.workers.dev";
+
+const api =
+  String(
+    (typeof CONFIG !== "undefined" &&
+      CONFIG.TRANSIT_API_URL) ||
+    FALLBACK_API
+  ).replace(/\/+$/, "");
+
+const limit = 100;
+let offset = 0;
+
+const $ =
+  id =>
+    document.getElementById(id);
+
+const esc =
+  value =>
+    String(value ?? "")
+      .replace(
+        /[&<>"']/g,
+        char => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        })[char]
+      );
+
+function localTime(iso) {
+  try {
+    return new Date(iso)
+      .toLocaleString(
+        "zh-CN",
+        {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }
+      );
+  }
+  catch {
+    return iso;
+  }
 }
-$("loginBtn").onclick=()=>{const v=$("adminKey").value.trim();if(!v)return;sessionStorage.setItem("visitAdminKey",v);$("loginError").textContent="";offset=0;load()};
-$("adminKey").addEventListener("keydown",e=>{if(e.key==="Enter")$("loginBtn").click()});
-$("refreshBtn").onclick=load;$("searchBtn").onclick=()=>{offset=0;load()};$("ipFilter").addEventListener("keydown",e=>{if(e.key==="Enter")$("searchBtn").click()});
-$("prevBtn").onclick=()=>{offset=Math.max(0,offset-limit);load()};$("nextBtn").onclick=()=>{offset+=limit;load()};
-$("logoutBtn").onclick=()=>{sessionStorage.removeItem("visitAdminKey");location.reload()};
-if(key())load();
+
+function device(ua) {
+  ua =
+    String(ua || "");
+
+  const os =
+    /iPhone/i.test(ua)
+      ? "iPhone"
+      : /iPad/i.test(ua)
+      ? "iPad"
+      : /Android/i.test(ua)
+      ? "Android"
+      : /Windows/i.test(ua)
+      ? "Windows"
+      : /Macintosh/i.test(ua)
+      ? "Mac"
+      : "其他";
+
+  const browser =
+    /Edg\//.test(ua)
+      ? "Edge"
+      : /CriOS|Chrome\//.test(ua)
+      ? "Chrome"
+      : /Safari\//.test(ua)
+      ? "Safari"
+      : /Firefox\//.test(ua)
+      ? "Firefox"
+      : "浏览器";
+
+  return `${os} · ${browser}`;
+}
+
+function key() {
+  return (
+    sessionStorage.getItem(
+      "visitAdminKey"
+    ) || ""
+  );
+}
+
+function setLoginMessage(
+  status = "",
+  error = ""
+) {
+  $("loginStatus").textContent =
+    status;
+
+  $("loginError").textContent =
+    error;
+}
+
+function showLogin() {
+  $("dashboard")
+    .classList
+    .add(
+      "hidden"
+    );
+
+  $("loginCard")
+    .classList
+    .remove(
+      "hidden"
+    );
+}
+
+function showDashboard() {
+  $("loginCard")
+    .classList
+    .add(
+      "hidden"
+    );
+
+  $("dashboard")
+    .classList
+    .remove(
+      "hidden"
+    );
+}
+
+async function load() {
+  const adminKey =
+    key();
+
+  if (!adminKey) {
+    return;
+  }
+
+  const loginButton =
+    $("loginBtn");
+
+  loginButton.disabled =
+    true;
+
+  const oldButtonText =
+    loginButton.textContent;
+
+  loginButton.textContent =
+    "正在连接…";
+
+  setLoginMessage(
+    `正在连接 ${api} …`,
+    ""
+  );
+
+  $("dataError").textContent =
+    "";
+
+  const ip =
+    $("ipFilter")
+      .value
+      .trim();
+
+  const url =
+    new URL(
+      api +
+      "/admin/visits"
+    );
+
+  url.searchParams.set(
+    "limit",
+    limit
+  );
+
+  url.searchParams.set(
+    "offset",
+    offset
+  );
+
+  if (ip) {
+    url.searchParams.set(
+      "ip",
+      ip
+    );
+  }
+
+  try {
+    const response =
+      await fetch(
+        url,
+        {
+          method: "GET",
+
+          headers: {
+            "X-Admin-Key":
+              adminKey
+          },
+
+          cache:
+            "no-store"
+        }
+      );
+
+    let data;
+
+    try {
+      data =
+        await response.json();
+    }
+    catch {
+      const text =
+        await response.text();
+
+      throw new Error(
+        `服务器返回了非 JSON 内容：${text.slice(0, 180)}`
+      );
+    }
+
+    if (!response.ok) {
+      const message =
+        data.error ||
+        data.detail ||
+        `HTTP ${response.status}`;
+
+      if (
+        response.status === 401
+      ) {
+        throw new Error(
+          "ADMIN_KEY 不正确。"
+        );
+      }
+
+      if (
+        message.includes(
+          "VISITS_DB"
+        )
+      ) {
+        throw new Error(
+          "Cloudflare 还没有正确绑定 D1。请确认 ltc-home-bus2 → Bindings 中存在 D1 binding，变量名必须是 VISITS_DB。"
+        );
+      }
+
+      if (
+        message.includes(
+          "ADMIN_KEY"
+        )
+      ) {
+        throw new Error(
+          "Cloudflare Worker 里还没有 ADMIN_KEY Secret。"
+        );
+      }
+
+      throw new Error(
+        message
+      );
+    }
+
+    showDashboard();
+
+    $("statTotal").textContent =
+      data.stats?.total ?? 0;
+
+    $("statUnique").textContent =
+      data.stats?.uniqueIps ?? 0;
+
+    $("stat24").textContent =
+      data.stats?.last24Hours ?? 0;
+
+    const visits =
+      Array.isArray(
+        data.visits
+      )
+        ? data.visits
+        : [];
+
+    $("rows").innerHTML =
+      visits
+        .map(
+          visit => `
+            <tr>
+              <td>
+                ${esc(
+                  localTime(
+                    visit.visited_at
+                  )
+                )}
+              </td>
+
+              <td class="mono">
+                ${esc(
+                  visit.ip
+                )}
+              </td>
+
+              <td>
+                ${esc(
+                  [
+                    visit.city,
+                    visit.region,
+                    visit.country
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") ||
+                  "—"
+                )}
+              </td>
+
+              <td class="mono">
+                ${esc(
+                  visit.page ||
+                  "—"
+                )}
+              </td>
+
+              <td>
+                ${esc(
+                  visit.asn
+                    ? `AS${visit.asn}`
+                    : "—"
+                )}
+                <br>
+                <span class="muted">
+                  ${esc(
+                    visit.colo ||
+                    ""
+                  )}
+                </span>
+              </td>
+
+              <td>
+                <strong>
+                  ${esc(
+                    device(
+                      visit.user_agent
+                    )
+                  )}
+                </strong>
+                <br>
+                <span class="muted ua">
+                  ${esc(
+                    visit.user_agent ||
+                    ""
+                  )}
+                </span>
+              </td>
+
+              <td>
+                ${esc(
+                  visit.referrer ||
+                  "直接访问"
+                )}
+              </td>
+            </tr>
+          `
+        )
+        .join("") ||
+      `
+        <tr>
+          <td
+            colspan="7"
+            class="muted"
+          >
+            暂无记录。先打开一次主页，然后再刷新这里。
+          </td>
+        </tr>
+      `;
+
+    const total =
+      Number(
+        data.stats?.total ||
+        0
+      );
+
+    const first =
+      total === 0
+        ? 0
+        : offset + 1;
+
+    const last =
+      Math.min(
+        offset +
+        visits.length,
+        total
+      );
+
+    $("pageInfo").textContent =
+      `${first}–${last} / ${total}`;
+
+    $("prevBtn").disabled =
+      offset === 0;
+
+    $("nextBtn").disabled =
+      visits.length <
+      limit;
+  }
+
+  catch (error) {
+    console.error(
+      "Visit admin:",
+      error
+    );
+
+    showLogin();
+
+    setLoginMessage(
+      "",
+      error.message ||
+      String(error)
+    );
+
+    // 只有明确的密码错误才清掉密码；
+    // D1 / 网络错误时保留，方便修好后直接重试。
+    if (
+      String(
+        error.message ||
+        ""
+      ).includes(
+        "ADMIN_KEY 不正确"
+      )
+    ) {
+      sessionStorage
+        .removeItem(
+          "visitAdminKey"
+        );
+    }
+  }
+
+  finally {
+    loginButton.disabled =
+      false;
+
+    loginButton.textContent =
+      oldButtonText;
+  }
+}
+
+$("loginBtn").onclick =
+  () => {
+    const value =
+      $("adminKey")
+        .value
+        .trim();
+
+    if (!value) {
+      setLoginMessage(
+        "",
+        "请输入 ADMIN_KEY。"
+      );
+
+      return;
+    }
+
+    sessionStorage.setItem(
+      "visitAdminKey",
+      value
+    );
+
+    offset =
+      0;
+
+    load();
+  };
+
+$("adminKey")
+  .addEventListener(
+    "keydown",
+    event => {
+      if (
+        event.key ===
+        "Enter"
+      ) {
+        $("loginBtn")
+          .click();
+      }
+    }
+  );
+
+$("refreshBtn").onclick =
+  load;
+
+$("searchBtn").onclick =
+  () => {
+    offset =
+      0;
+
+    load();
+  };
+
+$("ipFilter")
+  .addEventListener(
+    "keydown",
+    event => {
+      if (
+        event.key ===
+        "Enter"
+      ) {
+        $("searchBtn")
+          .click();
+      }
+    }
+  );
+
+$("prevBtn").onclick =
+  () => {
+    offset =
+      Math.max(
+        0,
+        offset - limit
+      );
+
+    load();
+  };
+
+$("nextBtn").onclick =
+  () => {
+    offset +=
+      limit;
+
+    load();
+  };
+
+$("logoutBtn").onclick =
+  () => {
+    sessionStorage
+      .removeItem(
+        "visitAdminKey"
+      );
+
+    location.reload();
+  };
+
+// 如果这个标签页已经登录过，直接加载。
+if (key()) {
+  load();
+}
 </script>
 </body>
 </html>
